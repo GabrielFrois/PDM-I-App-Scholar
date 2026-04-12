@@ -1,62 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
+import { useFormulario } from '../hooks/useFormulario';
+import { cadastroService, type DadosDisciplina } from '../services/cadastroService';
 import { theme } from '../styles/theme';
 
-type DadosFormulario = {
-  nomeDisciplina: string;
-  cargaHoraria: string;
-  professorResponsavel: string;
-  curso: string;
-  semestre: string;
-};
-
-const formularioVazio: DadosFormulario = {
+const VAZIO: DadosDisciplina = {
   nomeDisciplina: '', cargaHoraria: '', professorResponsavel: '', curso: '', semestre: '',
 };
 
 export default function CadastroDisciplinaScreen() {
-  const [formulario, setFormulario] = useState<DadosFormulario>(formularioVazio);
-  const [erros, setErros] = useState<Partial<DadosFormulario>>({});
   const [loading, setLoading] = useState(false);
+
+  const { formulario, erros, atualizarCampo, validar, resetar } = useFormulario(VAZIO, {
+    nomeDisciplina:       (v) => !v.trim() ? 'Nome da disciplina é obrigatório.'    : '',
+    cargaHoraria:         (v) => !v.trim() ? 'Carga horária é obrigatória.'         : '',
+    professorResponsavel: (v) => !v.trim() ? 'Professor responsável é obrigatório.' : '',
+    curso:                (v) => !v.trim() ? 'Curso é obrigatório.'                 : '',
+    semestre:             (v) => !v.trim() ? 'Semestre é obrigatório.'              : '',
+  });
 
   useEffect(() => {
     console.log('CadastroDisciplinaScreen montada.');
   }, []);
 
-  const atualizarCampo = (campo: keyof DadosFormulario, valor: string) => {
-    setFormulario((prev) => ({ ...prev, [campo]: valor }));
-    if (erros[campo]) setErros((prev) => ({ ...prev, [campo]: '' }));
-  };
-
-  const validar = (): boolean => {
-    const novosErros: Partial<DadosFormulario> = {};
-    if (!formulario.nomeDisciplina.trim()) novosErros.nomeDisciplina = 'Nome da disciplina é obrigatório.';
-    if (!formulario.cargaHoraria.trim()) novosErros.cargaHoraria = 'Carga horária é obrigatória.';
-    if (!formulario.professorResponsavel.trim()) novosErros.professorResponsavel = 'Professor responsável é obrigatório.';
-    if (!formulario.curso.trim()) novosErros.curso = 'Curso é obrigatório.';
-    if (!formulario.semestre.trim()) novosErros.semestre = 'Semestre é obrigatório.';
-    setErros(novosErros);
-    return Object.keys(novosErros).length === 0;
-  };
-
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!validar()) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await cadastroService.salvarDisciplina(formulario);
       console.log('Disciplina cadastrada:', formulario);
-      setLoading(false);
       Alert.alert('Sucesso', `Disciplina "${formulario.nomeDisciplina}" cadastrada!`, [
-        { text: 'OK', onPress: () => setFormulario(formularioVazio) },
+        { text: 'OK', onPress: resetar },
       ]);
-    }, 800);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -68,7 +51,6 @@ export default function CadastroDisciplinaScreen() {
         showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets={true}
       >
-
         <Text style={estilos.secaoTitulo}>Dados da Disciplina</Text>
 
         <InputField label="Nome da disciplina *" placeholder="Ex: Engenharia de Software"
@@ -84,43 +66,22 @@ export default function CadastroDisciplinaScreen() {
           error={erros.professorResponsavel} />
 
         <InputField label="Curso *" placeholder="Ex: DSM"
-          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)}
-          error={erros.curso} />
+          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)} error={erros.curso} />
 
         <InputField label="Semestre *" placeholder="Ex: 3º Semestre"
-          value={formulario.semestre} onChangeText={(v) => atualizarCampo('semestre', v)}
-          error={erros.semestre} />
+          value={formulario.semestre} onChangeText={(v) => atualizarCampo('semestre', v)} error={erros.semestre} />
 
         <PrimaryButton title="Salvar Disciplina" onPress={handleSalvar} loading={loading} />
-
-        <PrimaryButton
-          title="Limpar formulário"
-          variant="outline"
-          onPress={() => { setFormulario(formularioVazio); setErros({}); }}
-          style={{ marginTop: theme.spacing.sm }}
-        />
-
+        <PrimaryButton title="Limpar formulário" variant="outline" onPress={resetar}
+          style={{ marginTop: theme.spacing.sm }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  conteudo: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
-  },
-  secaoTitulo: {
-    fontSize: theme.font.lg,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
+  safeArea:    { flex: 1, backgroundColor: theme.colors.background },
+  scroll:      { flex: 1 },
+  conteudo:    { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  secaoTitulo: { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
 });
