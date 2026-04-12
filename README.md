@@ -76,8 +76,8 @@ app-scholar/
 ### 6. Boletim Acadêmico
 - Dados simulados (mock) carregados via `useEffect`
 - Exibição em tabela: disciplina, nota 1, nota 2, média e situação
-- Resumo visual com contagem de aprovados, em recuperação e reprovados
-- Badges coloridos por situação: verde (aprovado), laranja (recuperação), vermelho (reprovado)
+- Resumo visual com contagem de aprovados, em exame e reprovados
+- Badges coloridos por situação: verde (aprovado), laranja (exame), vermelho (reprovado)
 
 ---
 
@@ -97,7 +97,7 @@ Implementado por meio do `AuthContext`, que disponibiliza para todas as telas o 
 ## Credenciais de acesso (dados simulados)
 
 ```
-E-mail: admin@fatec.sp.gov.br
+E-mail: gabriel@fatec.sp.gov.br
 Senha:  123456
 ```
 

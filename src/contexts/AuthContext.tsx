@@ -16,9 +16,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Dados simulados de usuário válido
 const MOCK_USER = {
-  email: 'admin@fatec.sp.gov.br',
+  email: 'gabriel@fatec.sp.gov.br',
   senha: '123456',
-  nome: 'Administrador',
+  nome: 'Gabriel',
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

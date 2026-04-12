@@ -16,21 +16,21 @@ type Nota = {
   nota1: number;
   nota2: number;
   media: number;
-  situacao: 'Aprovado' | 'Recuperação' | 'Reprovado';
+  situacao: 'Aprovado' | 'Exame' | 'Reprovado';
 };
 
 const BOLETIM_SIMULADO: Nota[] = [
   { id: 1, disciplina: 'Programação Web', nota1: 8.5, nota2: 9.0, media: 8.75, situacao: 'Aprovado' },
-  { id: 2, disciplina: 'Banco de Dados', nota1: 7.0, nota2: 6.5, media: 6.75, situacao: 'Recuperação' },
+  { id: 2, disciplina: 'Banco de Dados', nota1: 7.0, nota2: 6.5, media: 6.75, situacao: 'Exame' },
   { id: 3, disciplina: 'Dispositivos Móveis', nota1: 9.5, nota2: 10.0, media: 9.75, situacao: 'Aprovado' },
-  { id: 4, disciplina: 'Engenharia de Software', nota1: 4.0, nota2: 5.5, media: 4.75, situacao: 'Reprovado' },
-  { id: 5, disciplina: 'Redes de Computadores', nota1: 8.0, nota2: 7.5, media: 7.75, situacao: 'Aprovado' },
+  { id: 4, disciplina: 'Internet das Coisas', nota1: 4.0, nota2: 5.5, media: 4.75, situacao: 'Reprovado' },
+  { id: 5, disciplina: 'Estatística', nota1: 10.0, nota2: 9.0, media: 9.5, situacao: 'Aprovado' },
 ];
 
 function corSituacao(situacao: Nota['situacao']) {
   switch (situacao) {
     case 'Aprovado': return { fundo: '#E6F4EA', texto: theme.colors.success };
-    case 'Recuperação': return { fundo: '#FEF3E2', texto: theme.colors.warning };
+    case 'Exame': return { fundo: '#FEF3E2', texto: theme.colors.warning };
     case 'Reprovado': return { fundo: '#FCE8E6', texto: theme.colors.danger };
   }
 }
@@ -50,7 +50,7 @@ export default function BoletimScreen() {
 
   const aprovadas = boletim.filter((n) => n.situacao === 'Aprovado').length;
   const reprovadas = boletim.filter((n) => n.situacao === 'Reprovado').length;
-  const recuperacao = boletim.filter((n) => n.situacao === 'Recuperação').length;
+  const exame = boletim.filter((n) => n.situacao === 'Exame').length;
 
   if (carregando) {
     return (
@@ -74,7 +74,7 @@ export default function BoletimScreen() {
         <View style={estilos.cabecalho}>
           <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
           <Text style={estilos.cabecalhoNome}>{user?.nome}</Text>
-          <Text style={estilos.cabecalhoSemestre}>1º Semestre / 2026</Text>
+          <Text style={estilos.cabecalhoSemestre}>4º Semestre / 2026</Text>
         </View>
 
         <View style={estilos.resumo}>
@@ -83,8 +83,8 @@ export default function BoletimScreen() {
             <Text style={estilos.resumoRotulo}>Aprovado</Text>
           </View>
           <View style={[estilos.resumoItem, { backgroundColor: '#FEF3E2' }]}>
-            <Text style={[estilos.resumoNumero, { color: theme.colors.warning }]}>{recuperacao}</Text>
-            <Text style={estilos.resumoRotulo}>Recuperação</Text>
+            <Text style={[estilos.resumoNumero, { color: theme.colors.warning }]}>{exame}</Text>
+            <Text style={estilos.resumoRotulo}>Exame</Text>
           </View>
           <View style={[estilos.resumoItem, { backgroundColor: '#FCE8E6' }]}>
             <Text style={[estilos.resumoNumero, { color: theme.colors.danger }]}>{reprovadas}</Text>

@@ -68,8 +68,8 @@ export default function LoginScreen() {
           <Text style={estilos.cardTitulo}>Entrar</Text>
           <InputField
             label="E-mail institucional"
-            hint="Teste: admin@fatec.sp.gov.br"
-            placeholder="seu@fatec.sp.gov.br"
+            hint="Teste: gabriel@fatec.sp.gov.br"
+            placeholder="nome@fatec.sp.gov.br"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
