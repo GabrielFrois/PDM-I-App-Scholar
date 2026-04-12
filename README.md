@@ -1,6 +1,6 @@
 # App Scholar
 
-Aplicativo mobile para gerenciamento de informações acadêmicas, desenvolvido com React Native e Expo para a disciplina de **Programação para Dispositivos Móveis I** — Fatec Jacareí.
+Aplicativo mobile para gerenciamento de informações acadêmicas, desenvolvido com React Native e Expo para a disciplina de **Programação para Dispositivos Móveis I**.
 
 ---
 
@@ -23,25 +23,31 @@ O App Scholar permite autenticação de usuários, cadastro de informações aca
 
 ```
 app-scholar/
-├── App.tsx                        # Providers globais
-├── app.json                       # Configurações do Expo
+├── App.tsx                              # Providers globais
+├── app.json                             # Configurações do Expo
 └── src/
     ├── components/
-    │   ├── BotaoPrimario.tsx      # Botão reutilizável
-    │   └── CampoEntrada.tsx       # Input reutilizável
+    │   ├── InputField.tsx               # Input reutilizável
+    │   └── PrimaryButton.tsx            # Botão reutilizável
     ├── contexts/
-    │   └── AuthContext.tsx        # Contexto de autenticação
+    │   └── AuthContext.tsx              # Contexto de autenticação
+    ├── hooks/
+    │   ├── useFormulario.ts             # Hook de formulários
+    │   └── useBoletim.ts                # Hook de carregamento do boletim
     ├── navigation/
-    │   └── AppNavigator.tsx       # Controle de rotas
+    │   └── AppNavigator.tsx             # Controle de rotas
     ├── screens/
-    │   ├── LoginScreen.tsx        
-    │   ├── DashboardScreen.tsx    
+    │   ├── LoginScreen.tsx
+    │   ├── DashboardScreen.tsx
     │   ├── CadastroAlunoScreen.tsx
     │   ├── CadastroProfessorScreen.tsx
     │   ├── CadastroDisciplinaScreen.tsx
-    │   └── BoletimScreen.tsx     
+    │   └── BoletimScreen.tsx
+    ├── services/
+    │   ├── boletimService.ts            # Busca de notas
+    │   └── cadastroService.ts           # Operações de cadastro
     └── styles/
-        └── theme.ts               # Paleta de cores, espaçamentos e tipografia
+        └── theme.ts                     # Paleta de cores, espaçamentos e tipografia
 ```
 
 ---
@@ -92,6 +98,12 @@ Utilizado nas telas de cadastro para registrar a montagem da tela (ponto de inte
 ### `useContext`
 Implementado por meio do `AuthContext`, que disponibiliza para todas as telas o estado de autenticação, os dados do usuário logado e as funções de `login` e `logout` sem necessidade de prop drilling.
 
+### `useFormulario` (hook customizado)
+Hook genérico reutilizado pelas três telas de cadastro. Recebe os valores iniciais e as regras de validação, e expõe `formulario`, `erros`, `atualizarCampo`, `validar` e `resetar`, eliminando código duplicado entre as telas.
+
+### `useBoletim` (hook customizado)
+Hook específico da tela de boletim. Encapsula a chamada ao `boletimService`, gerencia os estados de carregamento e erro, e calcula os contadores de aprovados, reprovados e em exame.
+
 ---
 
 ## Credenciais de acesso (dados simulados)
@@ -105,7 +117,7 @@ Senha:  123456
 
 ## Como executar
 
-**Pré-requisitos:** Node.js, npm e o aplicativo Expo Go instalado no celular (iOS ou Android).
+**Pré-requisitos:** Node.js, npm e o aplicativo Expo Go instalado no celular.
 
 ```bash
 # 1. Instalar as dependências
