@@ -1,3 +1,6 @@
+import type { AxiosError } from 'axios';
+import { api } from './api';
+
 export type DadosAluno = {
   nome: string;
   matricula: string;
@@ -26,25 +29,33 @@ export type DadosDisciplina = {
   semestre: string;
 };
 
+function extrairMensagemErro(err: unknown): string {
+  const error = err as AxiosError<{ erro: string }>;
+  return error.response?.data?.erro ?? 'Erro ao salvar. Tente novamente.';
+}
+
 export const cadastroService = {
-  salvarAluno: (dados: DadosAluno): Promise<void> => {
-    return new Promise((resolve) => {
-      console.log('[cadastroService] Salvando aluno:', dados);
-      setTimeout(resolve, 800);
-    });
+  salvarAluno: async (dados: DadosAluno): Promise<void> => {
+    try {
+      await api.post('/api/alunos', dados);
+    } catch (err) {
+      throw new Error(extrairMensagemErro(err));
+    }
   },
 
-  salvarProfessor: (dados: DadosProfessor): Promise<void> => {
-    return new Promise((resolve) => {
-      console.log('[cadastroService] Salvando professor:', dados);
-      setTimeout(resolve, 800);
-    });
+  salvarProfessor: async (dados: DadosProfessor): Promise<void> => {
+    try {
+      await api.post('/api/professores', dados);
+    } catch (err) {
+      throw new Error(extrairMensagemErro(err));
+    }
   },
 
-  salvarDisciplina: (dados: DadosDisciplina): Promise<void> => {
-    return new Promise((resolve) => {
-      console.log('[cadastroService] Salvando disciplina:', dados);
-      setTimeout(resolve, 800);
-    });
+  salvarDisciplina: async (dados: DadosDisciplina): Promise<void> => {
+    try {
+      await api.post('/api/disciplinas', dados);
+    } catch (err) {
+      throw new Error(extrairMensagemErro(err));
+    }
   },
 };

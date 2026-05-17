@@ -10,12 +10,13 @@ async function login(req, res) {
   }
 
   try {
-    const result = await pool.query(
+    // Busca o usuário
+    const usuarioResult = await pool.query(
       'SELECT * FROM usuarios WHERE email = $1',
       [email]
     );
 
-    const usuario = result.rows[0];
+    const usuario = usuarioResult.rows[0];
 
     if (!usuario) {
       return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
@@ -27,6 +28,21 @@ async function login(req, res) {
       return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
     }
 
+    // Se for aluno, busca a matrícula na tabela alunos
+    let matricula = null;
+    let nome = email.split('@')[0];
+
+    if (usuario.perfil === 'aluno') {
+      const alunoResult = await pool.query(
+        'SELECT nome, matricula FROM alunos WHERE email = $1',
+        [email]
+      );
+      if (alunoResult.rows.length > 0) {
+        matricula = alunoResult.rows[0].matricula;
+        nome = alunoResult.rows[0].nome;
+      }
+    }
+
     const token = jwt.sign(
       { id: usuario.id, email: usuario.email, perfil: usuario.perfil },
       process.env.JWT_SECRET || 'app_scholar_secret_key',
@@ -36,9 +52,10 @@ async function login(req, res) {
     return res.json({
       token,
       usuario: {
-        nome: email.split('@')[0],
+        nome,
         perfil: usuario.perfil,
         email: usuario.email,
+        matricula,
       },
     });
   } catch (err) {

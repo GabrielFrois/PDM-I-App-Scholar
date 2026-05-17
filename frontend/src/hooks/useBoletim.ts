@@ -7,7 +7,8 @@ type EstadoBoletim = {
   erro: string | null;
 };
 
-export function useBoletim(emailAluno?: string | null) {
+// Recebe matrícula agora (o backend busca por /boletim/:matricula)
+export function useBoletim(matricula?: string | null) {
   const [estado, setEstado] = useState<EstadoBoletim>({
     notas: [],
     carregando: true,
@@ -15,21 +16,26 @@ export function useBoletim(emailAluno?: string | null) {
   });
 
   useEffect(() => {
-    if (!emailAluno) return;
+    if (!matricula) {
+      setEstado({ notas: [], carregando: false, erro: null });
+      return;
+    }
 
     setEstado({ notas: [], carregando: true, erro: null });
 
     boletimService
-      .buscarNotas(emailAluno)
+      .buscarNotas(matricula)
       .then((notas) => setEstado({ notas, carregando: false, erro: null }))
-      .catch((err: Error) =>
-        setEstado({ notas: [], carregando: false, erro: err.message }),
-      );
-  }, [emailAluno]);
+      .catch((err: any) => {
+        const mensagem =
+          err.response?.data?.erro || err.message || 'Erro ao carregar boletim.';
+        setEstado({ notas: [], carregando: false, erro: mensagem });
+      });
+  }, [matricula]);
 
-  const aprovadas = estado.notas.filter((n) => n.situacao === 'Aprovado').length;
+  const aprovadas  = estado.notas.filter((n) => n.situacao === 'Aprovado').length;
   const reprovadas = estado.notas.filter((n) => n.situacao === 'Reprovado').length;
-  const emExame = estado.notas.filter((n) => n.situacao === 'Exame').length;
+  const emExame    = estado.notas.filter((n) => n.situacao === 'Exame').length;
 
   return {
     notas: estado.notas,

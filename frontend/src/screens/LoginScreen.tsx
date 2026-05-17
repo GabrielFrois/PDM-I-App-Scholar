@@ -1,12 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
@@ -21,7 +15,7 @@ export default function LoginScreen() {
 
   const { login } = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const newErrors = { email: '', senha: '' };
     let valid = true;
 
@@ -38,13 +32,14 @@ export default function LoginScreen() {
     if (!valid) return;
 
     setLoading(true);
-    setTimeout(() => {
-      const sucesso = login(email.trim(), senha.trim());
-      setLoading(false);
-      if (!sucesso) {
-        Alert.alert('Acesso negado', 'E-mail ou senha inválidos.');
-      }
-    }, 1000);
+    const resultado = await login(email.trim(), senha.trim());
+    setLoading(false);
+
+    if (!resultado.sucesso) {
+      Alert.alert('Acesso negado', resultado.erro || 'E-mail ou senha inválidos.');
+    }
+    // Se sucesso, o AuthContext atualiza isAuthenticated e o AppNavigator
+    // redireciona automaticamente para o Dashboard
   };
 
   return (
@@ -55,7 +50,6 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets={true}
       >
-
         <View style={estilos.cabecalho}>
           <View style={estilos.logoCirculo}>
             <Ionicons name="school-outline" size={36} color={theme.colors.white} />
@@ -68,7 +62,6 @@ export default function LoginScreen() {
           <Text style={estilos.cardTitulo}>Entrar</Text>
           <InputField
             label="E-mail institucional"
-            hint="Teste: gabriel@fatec.sp.gov.br"
             placeholder="nome@fatec.sp.gov.br"
             value={email}
             onChangeText={setEmail}
@@ -76,81 +69,31 @@ export default function LoginScreen() {
             autoCapitalize="none"
             error={errors.email}
           />
-
           <InputField
             label="Senha"
-            hint="Teste: 123456"
             placeholder="••••••••"
             value={senha}
             onChangeText={setSenha}
             secureTextEntry
             error={errors.senha}
           />
-
           <View style={estilos.areaBotao}>
-            <PrimaryButton
-              title="Entrar"
-              onPress={handleLogin}
-              loading={loading}
-            />
+            <PrimaryButton title="Entrar" onPress={handleLogin} loading={loading} />
           </View>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.primary,
-  },
-  conteudo: {
-    padding: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
-    paddingBottom: theme.spacing.xl,
-  },
-  cabecalho: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  logoCirculo: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  nomeApp: {
-    fontSize: theme.font.xxl,
-    fontWeight: '800',
-    color: theme.colors.white,
-  },
-  subtitulo: {
-    fontSize: theme.font.md,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: theme.spacing.xs,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  cardTitulo: {
-    fontSize: theme.font.xl,
-    fontWeight: '700',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.lg,
-  },
-  areaBotao: {
-    marginTop: theme.spacing.md,
-  },
+  safeArea:     { flex: 1, backgroundColor: theme.colors.primary },
+  conteudo:     { padding: theme.spacing.lg, paddingTop: theme.spacing.xl, paddingBottom: theme.spacing.xl },
+  cabecalho:    { alignItems: 'center', marginBottom: theme.spacing.xl },
+  logoCirculo:  { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: theme.spacing.md },
+  nomeApp:      { fontSize: theme.font.xxl, fontWeight: '800', color: theme.colors.white },
+  subtitulo:    { fontSize: theme.font.md, color: 'rgba(255,255,255,0.8)', marginTop: theme.spacing.xs },
+  card:         { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, padding: theme.spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
+  cardTitulo:   { fontSize: theme.font.xl, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.lg },
+  areaBotao:    { marginTop: theme.spacing.md },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
@@ -22,21 +22,17 @@ export default function CadastroDisciplinaScreen() {
     semestre:             (v) => !v.trim() ? 'Semestre é obrigatório.'              : '',
   });
 
-  useEffect(() => {
-    console.log('CadastroDisciplinaScreen montada.');
-  }, []);
-
   const handleSalvar = async () => {
     if (!validar()) return;
     setLoading(true);
     try {
       await cadastroService.salvarDisciplina(formulario);
-      console.log('Disciplina cadastrada:', formulario);
-      Alert.alert('Sucesso', `Disciplina "${formulario.nomeDisciplina}" cadastrada!`, [
+      Alert.alert('Sucesso', `Disciplina "${formulario.nomeDisciplina}" cadastrada com sucesso!`, [
         { text: 'OK', onPress: resetar },
       ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
+    } catch (err) {
+      const mensagem = err instanceof Error ? err.message : 'Não foi possível salvar. Tente novamente.';
+      Alert.alert('Erro', mensagem);
     } finally {
       setLoading(false);
     }
@@ -65,10 +61,10 @@ export default function CadastroDisciplinaScreen() {
           value={formulario.professorResponsavel} onChangeText={(v) => atualizarCampo('professorResponsavel', v)}
           error={erros.professorResponsavel} />
 
-        <InputField label="Curso *" placeholder="Ex: DSM"
+        <InputField label="Curso *" placeholder="Ex: Desenvolvimento de Software Multiplataforma"
           value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)} error={erros.curso} />
 
-        <InputField label="Semestre *" placeholder="Ex: 3º Semestre"
+        <InputField label="Semestre *" placeholder="Ex: 4º Semestre"
           value={formulario.semestre} onChangeText={(v) => atualizarCampo('semestre', v)} error={erros.semestre} />
 
         <PrimaryButton title="Salvar Disciplina" onPress={handleSalvar} loading={loading} />

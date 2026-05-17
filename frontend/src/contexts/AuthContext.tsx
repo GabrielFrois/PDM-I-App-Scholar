@@ -1,39 +1,59 @@
 import React, { createContext, useContext, useState } from 'react';
+import { api, definirToken } from '../services/api';
+import type { AxiosError } from 'axios';
 
 type User = {
   email: string;
   nome: string;
+  matricula?: string;
 };
 
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, senha: string) => boolean;
+  login: (email: string, senha: string) => Promise<{ sucesso: boolean; erro?: string }>;
   logout: () => void;
+};
+
+type RespostaLogin = {
+  token: string;
+  usuario: {
+    email: string;
+    nome: string;
+    perfil: string;
+    matricula?: string;
+  };
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dados simulados de usuário válido
-const MOCK_USER = {
-  email: 'gabriel@fatec.sp.gov.br',
-  senha: '123456',
-  nome: 'Gabriel',
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Simula autenticação
-  const login = (email: string, senha: string): boolean => {
-    if (email === MOCK_USER.email && senha === MOCK_USER.senha) {
-      setUser({ email: MOCK_USER.email, nome: MOCK_USER.nome });
-      return true;
+  const login = async (email: string, senha: string): Promise<{ sucesso: boolean; erro?: string }> => {
+    try {
+      const { data } = await api.post<RespostaLogin>('/api/login', { email, senha });
+
+      definirToken(data.token);
+
+      setUser({
+        email: data.usuario.email,
+        nome: data.usuario.nome,
+        matricula: data.usuario.matricula,
+      });
+
+      return { sucesso: true };
+    } catch (err) {
+      const error = err as AxiosError<{ erro: string }>;
+      const mensagem = error.response?.data?.erro ?? 'Não foi possível conectar ao servidor.';
+      return { sucesso: false, erro: mensagem };
     }
-    return false;
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    definirToken(null);
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
@@ -42,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Hook customizado para usar o contexto facilmente
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth deve ser usado dentro do AuthProvider');

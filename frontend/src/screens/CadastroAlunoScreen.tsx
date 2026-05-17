@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
@@ -14,34 +14,56 @@ const VAZIO: DadosAluno = {
 
 export default function CadastroAlunoScreen() {
   const [loading, setLoading] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   const { formulario, erros, atualizarCampo, validar, resetar } = useFormulario(VAZIO, {
-    nome:       (v) => !v.trim() ? 'Nome é obrigatório.'       : '',
-    matricula:  (v) => !v.trim() ? 'Matrícula é obrigatória.'  : '',
-    curso:      (v) => !v.trim() ? 'Curso é obrigatório.'      : '',
-    email:      (v) => !v.trim() ? 'E-mail é obrigatório.'     : '',
-    telefone:   (v) => !v.trim() ? 'Telefone é obrigatório.'   : '',
-    cep:        (v) => !v.trim() ? 'CEP é obrigatório.'        : '',
-    endereco:   (v) => !v.trim() ? 'Endereço é obrigatório.'   : '',
-    cidade:     (v) => !v.trim() ? 'Cidade é obrigatória.'     : '',
-    estado:     (v) => !v.trim() ? 'Estado é obrigatório.'     : '',
+    nome:      (v) => !v.trim() ? 'Nome é obrigatório.'      : '',
+    matricula: (v) => !v.trim() ? 'Matrícula é obrigatória.' : '',
+    curso:     (v) => !v.trim() ? 'Curso é obrigatório.'     : '',
+    email:     (v) => !v.trim() ? 'E-mail é obrigatório.'    : '',
+    telefone:  (v) => !v.trim() ? 'Telefone é obrigatório.'  : '',
+    cep:       (v) => !v.trim() ? 'CEP é obrigatório.'       : '',
+    endereco:  (v) => !v.trim() ? 'Endereço é obrigatório.'  : '',
+    cidade:    (v) => !v.trim() ? 'Cidade é obrigatória.'    : '',
+    estado:    (v) => !v.trim() ? 'Estado é obrigatório.'    : '',
   });
 
-  useEffect(() => {
-    console.log('CadastroAlunoScreen montada.');
-  }, []);
+  // ── ViaCEP ─────────────────────────────────────────────────
+  const buscarCep = async (cep: string) => {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const dados = await response.json();
+
+      if (dados.erro) {
+        Alert.alert('CEP não encontrado', 'Verifique o CEP e tente novamente.');
+        return;
+      }
+
+      atualizarCampo('endereco', dados.logradouro || '');
+      atualizarCampo('cidade', dados.localidade || '');
+      atualizarCampo('estado', dados.uf || '');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.');
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
 
   const handleSalvar = async () => {
     if (!validar()) return;
     setLoading(true);
     try {
       await cadastroService.salvarAluno(formulario);
-      console.log('Aluno cadastrado:', formulario);
       Alert.alert('Sucesso', `Aluno ${formulario.nome} cadastrado com sucesso!`, [
         { text: 'OK', onPress: resetar },
       ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
+    } catch (err: any) {
+      const mensagem = err.response?.data?.erro || 'Não foi possível salvar. Tente novamente.';
+      Alert.alert('Erro', mensagem);
     } finally {
       setLoading(false);
     }
@@ -79,9 +101,18 @@ export default function CadastroAlunoScreen() {
         <View style={estilos.divisor} />
         <Text style={estilos.secaoTitulo}>Endereço</Text>
 
-        <InputField label="CEP *" placeholder="12345-678"
-          value={formulario.cep} onChangeText={(v) => atualizarCampo('cep', v)}
-          keyboardType="numeric" error={erros.cep} />
+        <InputField
+          label="CEP *"
+          placeholder="12345678"
+          value={formulario.cep}
+          onChangeText={(v) => atualizarCampo('cep', v)}
+          // Ao sair do campo CEP, dispara a busca automática
+          onBlur={() => buscarCep(formulario.cep)}
+          keyboardType="numeric"
+          maxLength={8}
+          hint={buscandoCep ? 'Buscando endereço...' : 'Digite o CEP para preencher o endereço automaticamente'}
+          error={erros.cep}
+        />
 
         <InputField label="Endereço *" placeholder="Rua, número, complemento"
           value={formulario.endereco} onChangeText={(v) => atualizarCampo('endereco', v)} error={erros.endereco} />

@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const { Client } = require('pg');
+const bcrypt = require('bcrypt');
 
 const client = new Client({
   host: process.env.DB_HOST || 'localhost',
@@ -17,7 +18,6 @@ async function seed() {
 
     await client.query('BEGIN');
 
-    // Limpa dados antigos (respeita a ordem das FK)
     await client.query('DELETE FROM notas');
     await client.query('DELETE FROM disciplinas');
     await client.query('DELETE FROM alunos');
@@ -25,11 +25,11 @@ async function seed() {
     await client.query('DELETE FROM usuarios');
     console.log('[seed] Dados antigos removidos.');
 
-    // Usuarios
-    // Senha de todos: 123456
+    const senhaHash = await bcrypt.hash('123456', 10);
+
     const usuarios = [
-      { email: 'gabriel@fatec.sp.gov.br', senha_hash: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', perfil: 'aluno' },
-      { email: 'admin@fatec.sp.gov.br',   senha_hash: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', perfil: 'admin' },
+      { email: 'gabriel@fatec.sp.gov.br', senha_hash: senhaHash, perfil: 'aluno' },
+      { email: 'admin@fatec.sp.gov.br',   senha_hash: senhaHash, perfil: 'admin' },
     ];
 
     for (const u of usuarios) {
@@ -40,15 +40,11 @@ async function seed() {
     }
     console.log('[seed] Usuarios inseridos.');
 
-    // Professores
     const professores = [
-  { nome: 'Andre Olimpio', titulacao: 'A definir', area: 'Engenharia de Software', tempo_docencia: 8, email: 'andre.olimpio@fatec.sp.gov.br' },
-  { nome: 'Lucineide Nunes Pimenta', titulacao: 'A definir', area: 'A definir', tempo_docencia: 0, email: 'lucineide.pimenta@fatec.sp.gov.br' },
-  { nome: 'Neymar Siqueira Dellari', titulacao: 'A definir', area: 'A definir', tempo_docencia: 0, email: 'neymar.dellari@fatec.sp.gov.br' },
-  { nome: 'Leandro Toss Hoffmann', titulacao: 'A definir', area: 'A definir', tempo_docencia: 0, email: 'leandro.hoffmann@fatec.sp.gov.br' },
-  { nome: 'Anderson José da Silva', titulacao: 'A definir', area: 'A definir', tempo_docencia: 0, email: 'anderson.silva@fatec.sp.gov.br' },
-  { nome: 'Erico Luciano Pagotto', titulacao: 'A definir', area: 'A definir', tempo_docencia: 0, email: 'erico.pagotto@fatec.sp.gov.br' }
-];
+      { nome: 'Andre Olimpio',  titulacao: 'Mestre',  area: 'Engenharia de Software', tempo_docencia: 8,  email: 'andre.olimpio@fatec.sp.gov.br'  },
+      { nome: 'Maria Costa',    titulacao: 'Doutora', area: 'Banco de Dados',         tempo_docencia: 12, email: 'maria.costa@fatec.sp.gov.br'    },
+      { nome: 'Carlos Pereira', titulacao: 'Mestre',  area: 'Redes e Sistemas',       tempo_docencia: 5,  email: 'carlos.pereira@fatec.sp.gov.br' },
+    ];
 
     const professorIds = {};
     for (const p of professores) {
@@ -60,14 +56,12 @@ async function seed() {
     }
     console.log('[seed] Professores inseridos.');
 
-    // Disciplinas
     const disciplinas = [
       { nome: 'Programacao para Dispositivos Moveis I', carga_horaria: 80, professor: 'Andre Olimpio',  curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
-      { nome: 'Integração e Entrega Contínua',              carga_horaria: 80, professor: 'Lucineide Nunes Pimenta',    curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
-      { nome: 'Laboratório de Desenvolvimento Web',                        carga_horaria: 80, professor: 'Neymar Siqueira Dellari',  curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
-      { nome: 'Internet das Coisas',                    carga_horaria: 80, professor: 'Leandro Toss Hoffmann', curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
-      { nome: 'Estatistica Aplicada',                   carga_horaria: 80, professor: 'Anderson José da Silva',    curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
-      { nome: 'Experiência do Usuário',                   carga_horaria: 40, professor: 'Erico Luciano Pagotto',    curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
+      { nome: 'Banco de Dados Relacional',              carga_horaria: 80, professor: 'Maria Costa',    curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
+      { nome: 'Programacao Web',                        carga_horaria: 80, professor: 'Andre Olimpio',  curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
+      { nome: 'Internet das Coisas',                    carga_horaria: 60, professor: 'Carlos Pereira', curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
+      { nome: 'Estatistica Aplicada',                   carga_horaria: 60, professor: 'Maria Costa',    curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
     ];
 
     const disciplinaIds = {};
@@ -80,7 +74,6 @@ async function seed() {
     }
     console.log('[seed] Disciplinas inseridas.');
 
-    // Alunos
     const alunoRes = await client.query(
       `INSERT INTO alunos (nome, matricula, curso, email, telefone, cep, endereco, cidade, estado)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
@@ -91,15 +84,12 @@ async function seed() {
     const alunoId = alunoRes.rows[0].id;
     console.log('[seed] Aluno inserido.');
 
-    // Notas
-    // media e situacao sao calculadas automaticamente pelo banco
     const notas = [
       { disciplina: 'Programacao para Dispositivos Moveis I', nota1: 9.5,  nota2: 10.0 },
-      { disciplina: 'Integração e Entrega Contínua',              nota1: 5.0,  nota2: 6.0  },
-      { disciplina: 'Laboratório de Desenvolvimento Web',                        nota1: 8.5,  nota2: 9.0  },
+      { disciplina: 'Banco de Dados Relacional',              nota1: 5.0,  nota2: 6.0  },
+      { disciplina: 'Programacao Web',                        nota1: 8.5,  nota2: 9.0  },
       { disciplina: 'Internet das Coisas',                    nota1: 4.0,  nota2: 5.5  },
       { disciplina: 'Estatistica Aplicada',                   nota1: 10.0, nota2: 9.0  },
-      { disciplina: 'Experiência do Usuário',                   nota1: 9.5, nota2: 9.0  },
     ];
 
     for (const n of notas) {
@@ -111,7 +101,6 @@ async function seed() {
     console.log('[seed] Notas inseridas.');
 
     await client.query('COMMIT');
-
     console.log('[seed] Concluido com sucesso!');
     console.log('[seed] Usuarios: gabriel@fatec.sp.gov.br | admin@fatec.sp.gov.br');
     console.log('[seed] Senha de todos: 123456');

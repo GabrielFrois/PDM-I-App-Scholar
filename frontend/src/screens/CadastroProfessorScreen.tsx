@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
@@ -22,21 +22,17 @@ export default function CadastroProfessorScreen() {
     email:          (v) => !v.trim() ? 'E-mail é obrigatório.'            : '',
   });
 
-  useEffect(() => {
-    console.log('CadastroProfessorScreen montada.');
-  }, []);
-
   const handleSalvar = async () => {
     if (!validar()) return;
     setLoading(true);
     try {
       await cadastroService.salvarProfessor(formulario);
-      console.log('Professor cadastrado:', formulario);
-      Alert.alert('Sucesso', `Professor ${formulario.nome} cadastrado!`, [
+      Alert.alert('Sucesso', `Professor ${formulario.nome} cadastrado com sucesso!`, [
         { text: 'OK', onPress: resetar },
       ]);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
+    } catch (err) {
+      const mensagem = err instanceof Error ? err.message : 'Não foi possível salvar. Tente novamente.';
+      Alert.alert('Erro', mensagem);
     } finally {
       setLoading(false);
     }
