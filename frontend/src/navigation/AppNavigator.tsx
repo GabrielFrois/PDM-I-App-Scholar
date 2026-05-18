@@ -2,20 +2,22 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-import BoletimScreen from '../screens/BoletimScreen';
-import CadastroAlunoScreen from '../screens/CadastroAlunoScreen';
+import BoletimScreen          from '../screens/BoletimScreen';
+import CadastroAlunoScreen    from '../screens/CadastroAlunoScreen';
 import CadastroDisciplinaScreen from '../screens/CadastroDisciplinaScreen';
-import CadastroProfessorScreen from '../screens/CadastroProfessorScreen';
-import DashboardScreen from '../screens/DashboardScreen';
-import LoginScreen from '../screens/LoginScreen';
+import CadastroProfessorScreen  from '../screens/CadastroProfessorScreen';
+import DashboardScreen        from '../screens/DashboardScreen';
+import LancamentoNotasScreen  from '../screens/LancamentoNotasScreen';
+import LoginScreen            from '../screens/LoginScreen';
 
 export type RootStackParamList = {
-  Login: undefined;
-  Painel: undefined;
-  CadastroAluno: undefined;
-  CadastroProfessor: undefined;
+  Login:              undefined;
+  Painel:             undefined;
+  CadastroAluno:      undefined;
+  CadastroProfessor:  undefined;
   CadastroDisciplina: undefined;
-  Boletim: undefined;
+  Boletim:            undefined;
+  LancamentoNotas:    undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,11 +28,11 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#1A73E8' },
-        headerTintColor: '#FFFFFF',
+        headerStyle:      { backgroundColor: '#1A73E8' },
+        headerTintColor:  '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
-        headerBackTitle: 'Voltar',
-        contentStyle: { backgroundColor: '#F5F7FA' },
+        headerBackTitle:  'Voltar',
+        contentStyle:     { backgroundColor: '#F5F7FA' },
       }}
     >
       {!isAuthenticated ? (
@@ -65,6 +67,11 @@ export default function AppNavigator() {
             name="Boletim"
             component={BoletimScreen}
             options={{ title: 'Boletim Acadêmico' }}
+          />
+          <Stack.Screen
+            name="LancamentoNotas"
+            component={LancamentoNotasScreen}
+            options={{ title: 'Lançamento de Notas' }}
           />
         </>
       )}

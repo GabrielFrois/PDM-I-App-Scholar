@@ -2,10 +2,14 @@ import React, { createContext, useContext, useState } from 'react';
 import { api, definirToken } from '../services/api';
 import type { AxiosError } from 'axios';
 
+export type Perfil = 'aluno' | 'professor' | 'admin';
+
 type User = {
   email: string;
   nome: string;
-  matricula?: string;
+  perfil: Perfil;
+  matricula?: string;    // só aluno
+  professorId?: number;  // só professor
 };
 
 type AuthContextType = {
@@ -20,8 +24,9 @@ type RespostaLogin = {
   usuario: {
     email: string;
     nome: string;
-    perfil: string;
+    perfil: Perfil;
     matricula?: string;
+    professorId?: number;
   };
 };
 
@@ -37,9 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       definirToken(data.token);
 
       setUser({
-        email: data.usuario.email,
-        nome: data.usuario.nome,
-        matricula: data.usuario.matricula,
+        email:       data.usuario.email,
+        nome:        data.usuario.nome,
+        perfil:      data.usuario.perfil,
+        matricula:   data.usuario.matricula,
+        professorId: data.usuario.professorId,
       });
 
       return { sucesso: true };

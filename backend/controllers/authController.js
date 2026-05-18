@@ -30,6 +30,7 @@ async function login(req, res) {
 
     // Se for aluno, busca a matrícula na tabela alunos
     let matricula = null;
+    let professorId = null;
     let nome = email.split('@')[0];
 
     if (usuario.perfil === 'aluno') {
@@ -43,8 +44,19 @@ async function login(req, res) {
       }
     }
 
+    if (usuario.perfil === 'professor') {
+      const profResult = await pool.query(
+        'SELECT id, nome FROM professores WHERE email = $1',
+        [email]
+      );
+      if (profResult.rows.length > 0) {
+        professorId = profResult.rows[0].id;
+        nome = profResult.rows[0].nome;
+      }
+    }
+
     const token = jwt.sign(
-      { id: usuario.id, email: usuario.email, perfil: usuario.perfil },
+      { id: usuario.id, email: usuario.email, perfil: usuario.perfil, professorId },
       process.env.JWT_SECRET || 'app_scholar_secret_key',
       { expiresIn: '8h' }
     );
@@ -56,6 +68,7 @@ async function login(req, res) {
         perfil: usuario.perfil,
         email: usuario.email,
         matricula,
+        professorId,
       },
     });
   } catch (err) {

@@ -8,7 +8,16 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares globais
-app.use(cors());
+// Aceita requisições de localhost e de qualquer IP local (ex: 192.168.x.x)
+// usado quando o Expo roda em dispositivo físico na mesma rede
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // ferramentas como curl/Postman
+    const local = /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+    callback(local ? null : new Error('CORS bloqueado'), local);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // Rotas
@@ -27,10 +36,4 @@ app.use((req, res) => {
 // Inicializa o servidor 
 app.listen(PORT, () => {
   console.log(`>>> Servidor rodando em http://localhost:${PORT}`);
-  console.log(`>> Rotas disponíveis:`);
-  console.log(`   POST /api/login`);
-  console.log(`   POST /api/alunos`);
-  console.log(`   POST /api/professores`);
-  console.log(`   POST /api/disciplinas`);
-  console.log(`   GET  /api/boletim/:matricula`);
 });

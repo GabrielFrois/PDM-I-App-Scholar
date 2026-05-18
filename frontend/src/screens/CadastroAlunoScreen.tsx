@@ -3,7 +3,9 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
+import SelectField, { type OpcaoSelect } from '../components/SelectField';
 import { useFormulario } from '../hooks/useFormulario';
+import { useIBGE } from '../hooks/useIBGE';
 import { cadastroService, type DadosAluno } from '../services/cadastroService';
 import { theme } from '../styles/theme';
 
@@ -28,7 +30,22 @@ export default function CadastroAlunoScreen() {
     estado:    (v) => !v.trim() ? 'Estado é obrigatório.'    : '',
   });
 
-  // ── ViaCEP ─────────────────────────────────────────────────
+  // carrega estados sempre, cidades só quando um estado está selecionado
+  const { estados, cidades, carregandoEstados, carregandoCidades } = useIBGE(
+    formulario.estado || null,
+  );
+
+  const opcoesEstados: OpcaoSelect[] = estados.map((e) => ({
+    label: `${e.sigla} — ${e.nome}`,
+    value: e.sigla,
+  }));
+
+  const opcoesCidades: OpcaoSelect[] = cidades.map((c) => ({
+    label: c.nome,
+    value: c.nome,
+  }));
+
+  // ViaCEP
   const buscarCep = async (cep: string) => {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -44,8 +61,8 @@ export default function CadastroAlunoScreen() {
       }
 
       atualizarCampo('endereco', dados.logradouro || '');
-      atualizarCampo('cidade', dados.localidade || '');
       atualizarCampo('estado', dados.uf || '');
+      atualizarCampo('cidade', dados.localidade || '');
     } catch {
       Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.');
     } finally {
@@ -62,7 +79,7 @@ export default function CadastroAlunoScreen() {
         { text: 'OK', onPress: resetar },
       ]);
     } catch (err: any) {
-      const mensagem = err.response?.data?.erro || 'Não foi possível salvar. Tente novamente.';
+      const mensagem = err instanceof Error ? err.message : 'Não foi possível salvar. Tente novamente.';
       Alert.alert('Erro', mensagem);
     } finally {
       setLoading(false);
@@ -106,7 +123,6 @@ export default function CadastroAlunoScreen() {
           placeholder="12345678"
           value={formulario.cep}
           onChangeText={(v) => atualizarCampo('cep', v)}
-          // Ao sair do campo CEP, dispara a busca automática
           onBlur={() => buscarCep(formulario.cep)}
           keyboardType="numeric"
           maxLength={8}
@@ -117,12 +133,34 @@ export default function CadastroAlunoScreen() {
         <InputField label="Endereço *" placeholder="Rua, número, complemento"
           value={formulario.endereco} onChangeText={(v) => atualizarCampo('endereco', v)} error={erros.endereco} />
 
-        <InputField label="Cidade *" placeholder="Ex: Jacareí"
-          value={formulario.cidade} onChangeText={(v) => atualizarCampo('cidade', v)} error={erros.cidade} />
+        <SelectField
+          label="Estado *"
+          placeholder={carregandoEstados ? 'Carregando estados...' : 'Selecione o estado'}
+          opcoes={opcoesEstados}
+          valor={formulario.estado}
+          onChange={(v) => {
+            atualizarCampo('estado', v);
+            atualizarCampo('cidade', '');
+          }}
+          disabled={carregandoEstados}
+          error={erros.estado}
+        />
 
-        <InputField label="Estado *" placeholder="Ex: SP"
-          value={formulario.estado} onChangeText={(v) => atualizarCampo('estado', v)}
-          maxLength={2} autoCapitalize="characters" error={erros.estado} />
+        <SelectField
+          label="Cidade *"
+          placeholder={
+            !formulario.estado
+              ? 'Selecione o estado primeiro'
+              : carregandoCidades
+              ? 'Carregando cidades...'
+              : 'Selecione a cidade'
+          }
+          opcoes={opcoesCidades}
+          valor={formulario.cidade}
+          onChange={(v) => atualizarCampo('cidade', v)}
+          disabled={!formulario.estado || carregandoCidades}
+          error={erros.cidade}
+        />
 
         <PrimaryButton title="Salvar Aluno" onPress={handleSalvar} loading={loading} />
         <PrimaryButton title="Limpar formulário" variant="outline" onPress={resetar}

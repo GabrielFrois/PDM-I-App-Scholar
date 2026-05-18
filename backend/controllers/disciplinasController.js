@@ -8,7 +8,6 @@ async function cadastrar(req, res) {
   }
 
   try {
-    // Busca o professor pelo nome
     let professorId = null;
     if (professorResponsavel) {
       const prof = await pool.query(
@@ -38,13 +37,26 @@ async function cadastrar(req, res) {
 }
 
 async function listar(req, res) {
+  const { perfil, professorId } = req.usuario;
+
   try {
-    const result = await pool.query(
-      `SELECT d.id, d.nome, d.carga_horaria, d.curso, d.semestre, p.nome AS professor
-       FROM disciplinas d
-       LEFT JOIN professores p ON p.id = d.professor_id
-       ORDER BY d.nome`
-    );
+    // Professor só enxerga as próprias disciplinas
+    const result = perfil === 'professor'
+      ? await pool.query(
+          `SELECT d.id, d.nome, d.carga_horaria, d.curso, d.semestre, p.nome AS professor
+             FROM disciplinas d
+             LEFT JOIN professores p ON p.id = d.professor_id
+            WHERE d.professor_id = $1
+            ORDER BY d.nome`,
+          [professorId]
+        )
+      : await pool.query(
+          `SELECT d.id, d.nome, d.carga_horaria, d.curso, d.semestre, p.nome AS professor
+             FROM disciplinas d
+             LEFT JOIN professores p ON p.id = d.professor_id
+            ORDER BY d.nome`
+        );
+
     return res.json(result.rows);
   } catch (err) {
     console.error('[disciplinas.listar]', err.message);

@@ -28,8 +28,11 @@ async function seed() {
     const senhaHash = await bcrypt.hash('123456', 10);
 
     const usuarios = [
-      { email: 'gabriel@fatec.sp.gov.br', senha_hash: senhaHash, perfil: 'aluno' },
-      { email: 'admin@fatec.sp.gov.br',   senha_hash: senhaHash, perfil: 'admin' },
+      { email: 'gabriel@fatec.sp.gov.br',        senha_hash: senhaHash, perfil: 'aluno'     },
+      { email: 'admin@fatec.sp.gov.br',           senha_hash: senhaHash, perfil: 'admin'     },
+      { email: 'andre.olimpio@fatec.sp.gov.br',   senha_hash: senhaHash, perfil: 'professor' },
+      { email: 'maria.costa@fatec.sp.gov.br',     senha_hash: senhaHash, perfil: 'professor' },
+      { email: 'carlos.pereira@fatec.sp.gov.br',  senha_hash: senhaHash, perfil: 'professor' },
     ];
 
     for (const u of usuarios) {
@@ -102,7 +105,12 @@ async function seed() {
 
     await client.query('COMMIT');
     console.log('[seed] Concluido com sucesso!');
-    console.log('[seed] Usuarios: gabriel@fatec.sp.gov.br | admin@fatec.sp.gov.br');
+    console.log('[seed] Usuarios:');
+    console.log('[seed]   aluno     -> gabriel@fatec.sp.gov.br');
+    console.log('[seed]   admin     -> admin@fatec.sp.gov.br');
+    console.log('[seed]   professor -> andre.olimpio@fatec.sp.gov.br');
+    console.log('[seed]   professor -> maria.costa@fatec.sp.gov.br');
+    console.log('[seed]   professor -> carlos.pereira@fatec.sp.gov.br');
     console.log('[seed] Senha de todos: 123456');
   } catch (err) {
     await client.query('ROLLBACK');

@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoletim } from '../hooks/useBoletim';
@@ -16,81 +16,128 @@ function corSituacao(situacao: Nota['situacao']) {
 
 export default function BoletimScreen() {
   const { user } = useAuth();
+  const perfil = user?.perfil ?? 'aluno';
 
-  // Passa a matrícula (o backend busca por /boletim/:matricula)
-  const { notas, carregando, erro, aprovadas, reprovadas, emExame } = useBoletim(user?.matricula);
+  // Aluno sempre usa a própria matrícula.
+  // Admin/professor digitam a matrícula que querem consultar.
+  const [inputMatricula, setInputMatricula] = useState('');
+  const [matriculaBusca, setMatriculaBusca] = useState<string | undefined>(
+    perfil === 'aluno' ? user?.matricula : undefined
+  );
 
-  if (carregando) {
-    return (
-      <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
-        <View style={estilos.containerCarregando}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={estilos.textoCarregando}>Carregando boletim...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const { notas, carregando, erro, aprovadas, reprovadas, emExame } = useBoletim(matriculaBusca);
 
-  if (erro) {
-    return (
-      <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
-        <View style={estilos.containerCarregando}>
-          <Text style={{ color: theme.colors.danger }}>{erro}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const handleBuscar = () => {
+    const valor = inputMatricula.trim();
+    if (valor) setMatriculaBusca(valor);
+  };
 
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
-      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false}>
-
-        <View style={estilos.cabecalho}>
-          <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
-          <Text style={estilos.cabecalhoNome}>{user?.nome}</Text>
-          <Text style={estilos.cabecalhoSemestre}>4º Semestre / 2026</Text>
-        </View>
-
-        <View style={estilos.resumo}>
-          <View style={[estilos.resumoItem, { backgroundColor: '#E6F4EA' }]}>
-            <Text style={[estilos.resumoNumero, { color: theme.colors.success }]}>{aprovadas}</Text>
-            <Text style={estilos.resumoRotulo}>Aprovado</Text>
+      <ScrollView
+        style={estilos.scroll}
+        contentContainerStyle={estilos.conteudo}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Campo de busca — visível apenas para admin e professor */}
+        {perfil !== 'aluno' && (
+          <View style={estilos.buscaContainer}>
+            <TextInput
+              style={estilos.buscaInput}
+              placeholder="Matrícula do aluno"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={inputMatricula}
+              onChangeText={setInputMatricula}
+              keyboardType="numeric"
+              returnKeyType="search"
+              onSubmitEditing={handleBuscar}
+            />
+            <TouchableOpacity style={estilos.buscaBotao} onPress={handleBuscar}>
+              <Text style={estilos.buscaBotaoTexto}>Buscar</Text>
+            </TouchableOpacity>
           </View>
-          <View style={[estilos.resumoItem, { backgroundColor: '#FEF3E2' }]}>
-            <Text style={[estilos.resumoNumero, { color: theme.colors.warning }]}>{emExame}</Text>
-            <Text style={estilos.resumoRotulo}>Exame</Text>
-          </View>
-          <View style={[estilos.resumoItem, { backgroundColor: '#FCE8E6' }]}>
-            <Text style={[estilos.resumoNumero, { color: theme.colors.danger }]}>{reprovadas}</Text>
-            <Text style={estilos.resumoRotulo}>Reprovado</Text>
-          </View>
-        </View>
+        )}
 
-        <View style={estilos.cabecalhoTabela}>
-          <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.cabecalhoTabelaTexto]}>Disciplina</Text>
-          <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>N1</Text>
-          <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>N2</Text>
-          <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>Méd.</Text>
-          <Text style={[estilos.coluna, estilos.colunaSituacao,  estilos.cabecalhoTabelaTexto]}>Situação</Text>
-        </View>
+        {/* Estado: aguardando busca */}
+        {!matriculaBusca && perfil !== 'aluno' && (
+          <View style={estilos.containerCentro}>
+            <Text style={estilos.textoSecundario}>Digite a matrícula para consultar o boletim.</Text>
+          </View>
+        )}
 
-        {notas.map((item, index) => {
-          const cor = corSituacao(item.situacao);
-          return (
-            <View key={item.id} style={[estilos.linha, index % 2 === 0 ? estilos.linhaPar : estilos.linhaImpar]}>
-              <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.celula]} numberOfLines={2}>{item.disciplina}</Text>
-              <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota1).toFixed(1)}</Text>
-              <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota2).toFixed(1)}</Text>
-              <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula, estilos.media]}>{Number(item.media).toFixed(1)}</Text>
-              <View style={[estilos.coluna, estilos.colunaSituacao, estilos.colunaAlinhada]}>
-                <View style={[estilos.badge, { backgroundColor: cor.fundo }]}>
-                  <Text style={[estilos.badgeTexto, { color: cor.texto }]}>{item.situacao}</Text>
-                </View>
+        {/* Estado: carregando */}
+        {carregando && (
+          <View style={estilos.containerCentro}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={estilos.textoCarregando}>Carregando boletim...</Text>
+          </View>
+        )}
+
+        {/* Estado: erro */}
+        {!carregando && erro && (
+          <View style={estilos.containerCentro}>
+            <Text style={{ color: theme.colors.danger }}>{erro}</Text>
+          </View>
+        )}
+
+        {/* Conteúdo */}
+        {!carregando && !erro && matriculaBusca && notas.length >= 0 && (
+          <>
+            <View style={estilos.cabecalho}>
+              <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
+              <Text style={estilos.cabecalhoNome}>
+                {perfil === 'aluno' ? user?.nome : `Matrícula: ${matriculaBusca}`}
+              </Text>
+              <Text style={estilos.cabecalhoSemestre}>4º Semestre / 2026</Text>
+            </View>
+
+            <View style={estilos.resumo}>
+              <View style={[estilos.resumoItem, { backgroundColor: '#E6F4EA' }]}>
+                <Text style={[estilos.resumoNumero, { color: theme.colors.success }]}>{aprovadas}</Text>
+                <Text style={estilos.resumoRotulo}>Aprovado</Text>
+              </View>
+              <View style={[estilos.resumoItem, { backgroundColor: '#FEF3E2' }]}>
+                <Text style={[estilos.resumoNumero, { color: theme.colors.warning }]}>{emExame}</Text>
+                <Text style={estilos.resumoRotulo}>Exame</Text>
+              </View>
+              <View style={[estilos.resumoItem, { backgroundColor: '#FCE8E6' }]}>
+                <Text style={[estilos.resumoNumero, { color: theme.colors.danger }]}>{reprovadas}</Text>
+                <Text style={estilos.resumoRotulo}>Reprovado</Text>
               </View>
             </View>
-          );
-        })}
 
+            {notas.length === 0 ? (
+              <Text style={estilos.textoSecundario}>Nenhuma nota encontrada para esta matrícula.</Text>
+            ) : (
+              <>
+                <View style={estilos.cabecalhoTabela}>
+                  <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.cabecalhoTabelaTexto]}>Disciplina</Text>
+                  <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>N1</Text>
+                  <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>N2</Text>
+                  <Text style={[estilos.coluna, estilos.colunaNota,      estilos.cabecalhoTabelaTexto]}>Méd.</Text>
+                  <Text style={[estilos.coluna, estilos.colunaSituacao,  estilos.cabecalhoTabelaTexto]}>Situação</Text>
+                </View>
+
+                {notas.map((item, index) => {
+                  const cor = corSituacao(item.situacao);
+                  return (
+                    <View key={item.id} style={[estilos.linha, index % 2 === 0 ? estilos.linhaPar : estilos.linhaImpar]}>
+                      <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.celula]} numberOfLines={2}>{item.disciplina}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota1).toFixed(1)}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota2).toFixed(1)}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula, estilos.media]}>{Number(item.media).toFixed(1)}</Text>
+                      <View style={[estilos.coluna, estilos.colunaSituacao, estilos.colunaAlinhada]}>
+                        <View style={[estilos.badge, { backgroundColor: cor.fundo }]}>
+                          <Text style={[estilos.badgeTexto, { color: cor.texto }]}>{item.situacao}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -100,8 +147,13 @@ const estilos = StyleSheet.create({
   safeArea:             { flex: 1, backgroundColor: theme.colors.background },
   scroll:               { flex: 1 },
   conteudo:             { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  containerCarregando:  { flex: 1, justifyContent: 'center', alignItems: 'center', gap: theme.spacing.md },
+  buscaContainer:       { flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.lg },
+  buscaInput:           { flex: 1, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.sm, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, fontSize: theme.font.md, color: theme.colors.text },
+  buscaBotao:           { backgroundColor: theme.colors.primary, borderRadius: theme.radius.sm, paddingHorizontal: theme.spacing.md, justifyContent: 'center' },
+  buscaBotaoTexto:      { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.md },
+  containerCentro:      { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.spacing.xxl, gap: theme.spacing.md },
   textoCarregando:      { fontSize: theme.font.md, color: theme.colors.textSecondary, marginTop: theme.spacing.sm },
+  textoSecundario:      { fontSize: theme.font.md, color: theme.colors.textSecondary, textAlign: 'center' },
   cabecalho:            { backgroundColor: theme.colors.primary, borderRadius: theme.radius.md, padding: theme.spacing.lg, marginBottom: theme.spacing.lg },
   cabecalhoTitulo:      { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.white },
   cabecalhoNome:        { fontSize: theme.font.md, color: 'rgba(255,255,255,0.9)', marginTop: theme.spacing.xs },

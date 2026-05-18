@@ -9,8 +9,9 @@ DROP TABLE IF EXISTS usuarios    CASCADE;
 CREATE TABLE usuarios (
   id         SERIAL       PRIMARY KEY,
   email      VARCHAR(150) NOT NULL UNIQUE,
-  senha_hash VARCHAR(255) NOT NULL,           -- bcrypt hash
-  perfil     VARCHAR(20)  NOT NULL DEFAULT 'aluno' CHECK (perfil IN ('aluno', 'admin')),
+  senha_hash VARCHAR(255) NOT NULL,
+  perfil     VARCHAR(20)  NOT NULL DEFAULT 'aluno'
+               CHECK (perfil IN ('aluno', 'professor', 'admin')),
   criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -73,5 +74,7 @@ CREATE TABLE notas (
 -- Índices para performance nas consultas mais comuns
 CREATE INDEX idx_alunos_matricula    ON alunos(matricula);
 CREATE INDEX idx_alunos_email        ON alunos(email);
+CREATE INDEX idx_professores_email   ON professores(email);
 CREATE INDEX idx_notas_aluno         ON notas(aluno_id);
 CREATE INDEX idx_disciplinas_curso   ON disciplinas(curso);
+CREATE INDEX idx_disciplinas_prof    ON disciplinas(professor_id);
