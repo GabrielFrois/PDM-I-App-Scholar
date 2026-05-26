@@ -5,7 +5,6 @@ DROP TABLE IF EXISTS professores CASCADE;
 DROP TABLE IF EXISTS usuarios    CASCADE;
 
 -- Tabela usuarios
--- Usada pela API de autenticação (login com JWT)
 CREATE TABLE usuarios (
   id         SERIAL       PRIMARY KEY,
   email      VARCHAR(150) NOT NULL UNIQUE,
@@ -27,6 +26,7 @@ CREATE TABLE alunos (
   endereco   VARCHAR(200),
   cidade     VARCHAR(100),
   estado     CHAR(2),
+  deleted_at TIMESTAMP    DEFAULT NULL,
   criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -38,6 +38,7 @@ CREATE TABLE professores (
   area           VARCHAR(100) NOT NULL,
   tempo_docencia INTEGER      NOT NULL DEFAULT 0,
   email          VARCHAR(150) NOT NULL UNIQUE,
+  deleted_at     TIMESTAMP    DEFAULT NULL,
   criado_em      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -49,6 +50,7 @@ CREATE TABLE disciplinas (
   professor_id  INTEGER      REFERENCES professores(id) ON DELETE SET NULL,
   curso         VARCHAR(100) NOT NULL,
   semestre      VARCHAR(20)  NOT NULL,
+  deleted_at    TIMESTAMP    DEFAULT NULL,
   criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -71,10 +73,15 @@ CREATE TABLE notas (
   UNIQUE (aluno_id, disciplina_id)
 );
 
--- Índices para performance nas consultas mais comuns
-CREATE INDEX idx_alunos_matricula    ON alunos(matricula);
-CREATE INDEX idx_alunos_email        ON alunos(email);
-CREATE INDEX idx_professores_email   ON professores(email);
-CREATE INDEX idx_notas_aluno         ON notas(aluno_id);
-CREATE INDEX idx_disciplinas_curso   ON disciplinas(curso);
-CREATE INDEX idx_disciplinas_prof    ON disciplinas(professor_id);
+-- Índices de performance
+CREATE INDEX idx_alunos_matricula       ON alunos(matricula);
+CREATE INDEX idx_alunos_email           ON alunos(email);
+CREATE INDEX idx_professores_email      ON professores(email);
+CREATE INDEX idx_notas_aluno            ON notas(aluno_id);
+CREATE INDEX idx_disciplinas_curso      ON disciplinas(curso);
+CREATE INDEX idx_disciplinas_prof       ON disciplinas(professor_id);
+
+-- Índices de soft delete
+CREATE INDEX idx_alunos_deleted         ON alunos(deleted_at)       WHERE deleted_at IS NULL;
+CREATE INDEX idx_professores_deleted    ON professores(deleted_at)  WHERE deleted_at IS NULL;
+CREATE INDEX idx_disciplinas_deleted    ON disciplinas(deleted_at)  WHERE deleted_at IS NULL;

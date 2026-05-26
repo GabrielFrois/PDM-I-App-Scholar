@@ -1,7 +1,6 @@
 const pool = require('../database/db');
 
 async function cadastrar(req, res) {
-  // Somente admin pode cadastrar alunos
   const { nome, matricula, curso, email, telefone, cep, endereco, cidade, estado } = req.body;
 
   if (!nome || !matricula || !curso || !email) {
@@ -18,7 +17,7 @@ async function cadastrar(req, res) {
 
     return res.status(201).json({
       mensagem: 'Aluno cadastrado com sucesso!',
-      aluno: result.rows[0],
+      aluno:    result.rows[0],
     });
   } catch (err) {
     if (err.code === '23505') {
@@ -29,29 +28,67 @@ async function cadastrar(req, res) {
   }
 }
 
+/**
+ * GET /api/alunos
+ * ?email=... → retorna um aluno específico
+ * ?pagina=&limite= → listagem paginada
+ */
 async function listar(req, res) {
+  const { email } = req.query;
+
+  if (email) {
+    try {
+      const result = await pool.query(
+        `SELECT id, nome, matricula, curso, email, telefone, cep, endereco, cidade, estado
+           FROM alunos
+          WHERE email = $1 AND deleted_at IS NULL`,
+        [email]
+      );
+      return res.json(result.rows[0] ?? null);
+    } catch (err) {
+      console.error('[alunos.listar email]', err.message);
+      return res.status(500).json({ erro: 'Erro interno do servidor.' });
+    }
+  }
+
+  const pagina = Math.max(1, parseInt(req.query.pagina) || 1);
+  const limite = Math.min(100, Math.max(1, parseInt(req.query.limite) || 20));
+  const offset = (pagina - 1) * limite;
+
   try {
-    const result = await pool.query(
-      'SELECT id, nome, matricula, curso, email, cidade, estado FROM alunos ORDER BY nome'
-    );
-    return res.json(result.rows);
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT id, nome, matricula, curso, email, cidade, estado
+           FROM alunos
+          WHERE deleted_at IS NULL
+          ORDER BY nome
+          LIMIT $1 OFFSET $2`,
+        [limite, offset]
+      ),
+      pool.query('SELECT COUNT(*) FROM alunos WHERE deleted_at IS NULL'),
+    ]);
+
+    return res.json({
+      dados:  dataResult.rows,
+      total:  parseInt(countResult.rows[0].count),
+      pagina,
+      limite,
+    });
   } catch (err) {
     console.error('[alunos.listar]', err.message);
     return res.status(500).json({ erro: 'Erro interno do servidor.' });
   }
 }
 
-/**
- * PUT /api/alunos/:id
- * Admin: pode atualizar qualquer aluno.
- * Aluno: só pode atualizar o próprio registro (verifica pelo email do token).
- */
 async function atualizar(req, res) {
   const { id } = req.params;
   const { perfil, email: emailToken } = req.usuario;
 
   try {
-    const existente = await pool.query('SELECT * FROM alunos WHERE id = $1', [id]);
+    const existente = await pool.query(
+      'SELECT * FROM alunos WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     if (existente.rows.length === 0) {
       return res.status(404).json({ erro: 'Aluno não encontrado.' });
     }
@@ -75,10 +112,7 @@ async function atualizar(req, res) {
       [nome, matricula, curso, email, telefone, cep, endereco, cidade, estado, id]
     );
 
-    return res.json({
-      mensagem: 'Dados atualizados com sucesso!',
-      aluno: result.rows[0],
-    });
+    return res.json({ mensagem: 'Dados atualizados com sucesso!', aluno: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ erro: 'Matrícula ou e-mail já cadastrado.' });
@@ -88,4 +122,26 @@ async function atualizar(req, res) {
   }
 }
 
-module.exports = { cadastrar, listar, atualizar };
+/** DELETE /api/alunos/:id — somente admin. Soft delete. */
+async function remover(req, res) {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE alunos SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id, nome`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Aluno não encontrado.' });
+    }
+
+    return res.json({ mensagem: 'Aluno removido com sucesso.', aluno: result.rows[0] });
+  } catch (err) {
+    console.error('[alunos.remover]', err.message);
+    return res.status(500).json({ erro: 'Erro interno do servidor.' });
+  }
+}
+
+module.exports = { cadastrar, listar, atualizar, remover };

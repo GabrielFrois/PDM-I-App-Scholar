@@ -1,7 +1,6 @@
 const pool = require('../database/db');
 
 async function cadastrar(req, res) {
-  // Somente admin pode cadastrar professores (enforced na rota)
   const { nome, titulacao, areaAtuacao, tempoDocencia, email } = req.body;
 
   if (!nome || !titulacao || !areaAtuacao || !email) {
@@ -17,7 +16,7 @@ async function cadastrar(req, res) {
     );
 
     return res.status(201).json({
-      mensagem: 'Professor cadastrado com sucesso!',
+      mensagem:  'Professor cadastrado com sucesso!',
       professor: result.rows[0],
     });
   } catch (err) {
@@ -29,29 +28,67 @@ async function cadastrar(req, res) {
   }
 }
 
+/**
+ * GET /api/professores
+ * ?email=... → retorna um professor específico
+ * ?pagina=&limite= → listagem paginada
+ */
 async function listar(req, res) {
+  const { email } = req.query;
+
+  if (email) {
+    try {
+      const result = await pool.query(
+        `SELECT id, nome, titulacao, area, tempo_docencia, email
+           FROM professores
+          WHERE email = $1 AND deleted_at IS NULL`,
+        [email]
+      );
+      return res.json(result.rows[0] ?? null);
+    } catch (err) {
+      console.error('[professores.listar email]', err.message);
+      return res.status(500).json({ erro: 'Erro interno do servidor.' });
+    }
+  }
+
+  const pagina = Math.max(1, parseInt(req.query.pagina) || 1);
+  const limite = Math.min(100, Math.max(1, parseInt(req.query.limite) || 20));
+  const offset = (pagina - 1) * limite;
+
   try {
-    const result = await pool.query(
-      'SELECT id, nome, titulacao, area, tempo_docencia, email FROM professores ORDER BY nome'
-    );
-    return res.json(result.rows);
+    const [dataResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT id, nome, titulacao, area, tempo_docencia, email
+           FROM professores
+          WHERE deleted_at IS NULL
+          ORDER BY nome
+          LIMIT $1 OFFSET $2`,
+        [limite, offset]
+      ),
+      pool.query('SELECT COUNT(*) FROM professores WHERE deleted_at IS NULL'),
+    ]);
+
+    return res.json({
+      dados:  dataResult.rows,
+      total:  parseInt(countResult.rows[0].count),
+      pagina,
+      limite,
+    });
   } catch (err) {
     console.error('[professores.listar]', err.message);
     return res.status(500).json({ erro: 'Erro interno do servidor.' });
   }
 }
 
-/**
- * PUT /api/professores/:id
- * Admin: pode atualizar qualquer professor.
- * Professor: só pode atualizar o próprio registro (verifica pelo email do token).
- */
 async function atualizar(req, res) {
   const { id } = req.params;
   const { perfil, email: emailToken } = req.usuario;
 
   try {
-    const existente = await pool.query('SELECT * FROM professores WHERE id = $1', [id]);
+    const existente = await pool.query(
+      'SELECT * FROM professores WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     if (existente.rows.length === 0) {
       return res.status(404).json({ erro: 'Professor não encontrado.' });
     }
@@ -74,10 +111,7 @@ async function atualizar(req, res) {
       [nome, titulacao, areaAtuacao, parseInt(tempoDocencia) || 0, email, id]
     );
 
-    return res.json({
-      mensagem: 'Dados atualizados com sucesso!',
-      professor: result.rows[0],
-    });
+    return res.json({ mensagem: 'Dados atualizados com sucesso!', professor: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ erro: 'E-mail já cadastrado.' });
@@ -87,4 +121,26 @@ async function atualizar(req, res) {
   }
 }
 
-module.exports = { cadastrar, listar, atualizar };
+/** DELETE /api/professores/:id — somente admin. Soft delete. */
+async function remover(req, res) {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE professores SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id, nome`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Professor não encontrado.' });
+    }
+
+    return res.json({ mensagem: 'Professor removido com sucesso.', professor: result.rows[0] });
+  } catch (err) {
+    console.error('[professores.remover]', err.message);
+    return res.status(500).json({ erro: 'Erro interno do servidor.' });
+  }
+}
+
+module.exports = { cadastrar, listar, atualizar, remover };

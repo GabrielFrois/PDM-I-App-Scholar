@@ -1,15 +1,19 @@
 require('dotenv').config();
 
 const { Client } = require('pg');
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
 
+if (!process.env.DB_PASSWORD) {
+  throw new Error('Variável de ambiente DB_PASSWORD não definida. Configure o arquivo .env');
+}
+
 const client = new Client({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  host:     process.env.DB_HOST || 'localhost',
+  port:     process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'appscholar',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '123456',
+  user:     process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD,
 });
 
 async function migrate() {
@@ -23,7 +27,7 @@ async function migrate() {
     console.log('[migrate] Executando migrations...');
     await client.query(sql);
 
-    console.log('[migrate] Concluido com sucesso!');
+    console.log('[migrate] Concluído com sucesso!');
     console.log('[migrate] Tabelas: usuarios, alunos, professores, disciplinas, notas');
   } catch (err) {
     console.error('[migrate] Erro:', err.message);

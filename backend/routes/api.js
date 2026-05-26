@@ -1,8 +1,8 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 
-const { autenticar }  = require('../middlewares/auth');
-const { autorizar }   = require('../middlewares/autorizar');
+const { autenticar } = require('../middlewares/auth');
+const { autorizar }  = require('../middlewares/autorizar');
 
 const authController        = require('../controllers/authController');
 const alunosController      = require('../controllers/alunosController');
@@ -11,40 +11,31 @@ const disciplinasController = require('../controllers/disciplinasController');
 const boletimController     = require('../controllers/boletimController');
 const notasController       = require('../controllers/notasController');
 
-// ─── Autenticação (aberta) ───────────────────────────────────────────
+// Autenticação
 router.post('/login', authController.login);
 
-// ─── Alunos ──────────────────────────────────────────────────────────
-// Cadastrar: somente admin
-router.post('/alunos',     autenticar, autorizar('admin'),                    alunosController.cadastrar);
-// Listar: admin e professor
-router.get('/alunos',      autenticar, autorizar('admin', 'professor'),        alunosController.listar);
-// Atualizar: admin (qualquer) ou aluno (próprio — verificado no controller)
-router.put('/alunos/:id',  autenticar, autorizar('admin', 'aluno'),            alunosController.atualizar);
+// Alunos
+router.post('/alunos',        autenticar, autorizar('admin'),              alunosController.cadastrar);
+router.get('/alunos',         autenticar, autorizar('admin', 'professor'), alunosController.listar);
+router.put('/alunos/:id',     autenticar, autorizar('admin', 'aluno'),     alunosController.atualizar);
+router.delete('/alunos/:id',  autenticar, autorizar('admin'),              alunosController.remover);
 
-// ─── Professores ─────────────────────────────────────────────────────
-// Cadastrar: somente admin
-router.post('/professores',     autenticar, autorizar('admin'),                         professoresController.cadastrar);
-// Listar: admin e professor
-router.get('/professores',      autenticar, autorizar('admin', 'professor'),             professoresController.listar);
-// Atualizar: admin (qualquer) ou professor (próprio — verificado no controller)
-router.put('/professores/:id',  autenticar, autorizar('admin', 'professor'),             professoresController.atualizar);
+// Professores
+router.post('/professores',       autenticar, autorizar('admin'),                  professoresController.cadastrar);
+router.get('/professores',        autenticar, autorizar('admin', 'professor'),     professoresController.listar);
+router.put('/professores/:id',    autenticar, autorizar('admin', 'professor'),     professoresController.atualizar);
+router.delete('/professores/:id', autenticar, autorizar('admin'),                  professoresController.remover);
 
-// ─── Disciplinas ─────────────────────────────────────────────────────
-// Cadastrar: somente admin
-router.post('/disciplinas',  autenticar, autorizar('admin'),                    disciplinasController.cadastrar);
-// Listar: admin e professor
-router.get('/disciplinas',   autenticar, autorizar('admin', 'professor'),        disciplinasController.listar);
+// Disciplinas
+router.post('/disciplinas',       autenticar, autorizar('admin'),              disciplinasController.cadastrar);
+router.get('/disciplinas',        autenticar, autorizar('admin', 'professor'), disciplinasController.listar);
+router.delete('/disciplinas/:id', autenticar, autorizar('admin'),              disciplinasController.remover);
 
-// ─── Notas ───────────────────────────────────────────────────────────
-// Listar notas por disciplina: admin e professor (ownership verificado no controller)
+// Notas
 router.get('/notas/disciplina/:disciplinaId', autenticar, autorizar('admin', 'professor'), notasController.listarPorDisciplina);
-// Lançar/atualizar notas: admin e professor (ownership verificado no controller)
-router.put('/notas',  autenticar, autorizar('admin', 'professor'),  notasController.lancarOuAtualizar);
+router.put('/notas',                          autenticar, autorizar('admin', 'professor'), notasController.lancarOuAtualizar);
 
-// ─── Boletim ─────────────────────────────────────────────────────────
-// Aluno: acessa somente o próprio boletim (verificado no controller)
-// Admin e professor: acesso livre
+// Boletim
 router.get('/boletim/:matricula', autenticar, autorizar('admin', 'professor', 'aluno'), boletimController.buscarPorMatricula);
 
 module.exports = router;

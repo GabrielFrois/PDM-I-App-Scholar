@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,15 +10,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { notasService, type NotaTurma } from '../services/notasService';
 import { theme } from '../styles/theme';
 
 type Disciplina = {
-  id:      number;
-  nome:    string;
-  curso:   string;
+  id:       number;
+  nome:     string;
+  curso:    string;
   semestre: string;
 };
 
@@ -28,18 +26,30 @@ type EdicaoNotas = {
   nota2: string;
 };
 
+function BadgeSituacao({ situacao }: { situacao: NotaTurma['situacao'] }) {
+  if (!situacao) return null;
+  const cores: Record<string, { bg: string; fg: string }> = {
+    Aprovado:  { bg: '#E6F4EA', fg: theme.colors.success },
+    Exame:     { bg: '#FEF3E2', fg: theme.colors.warning },
+    Reprovado: { bg: '#FCE8E6', fg: theme.colors.danger  },
+  };
+  const { bg, fg } = cores[situacao] ?? { bg: '#F3F4F6', fg: theme.colors.textSecondary };
+  return (
+    <View style={[estilos.badge, { backgroundColor: bg }]}>
+      <Text style={[estilos.badgeTexto, { color: fg }]}>{situacao}</Text>
+    </View>
+  );
+}
+
 export default function LancamentoNotasScreen() {
-  const { user } = useAuth();
-
-  const [disciplinas,          setDisciplinas]          = useState<Disciplina[]>([]);
+  const [disciplinas,           setDisciplinas]           = useState<Disciplina[]>([]);
   const [disciplinaSelecionada, setDisciplinaSelecionada] = useState<Disciplina | null>(null);
-  const [notas,                setNotas]                = useState<NotaTurma[]>([]);
-  const [edicao,               setEdicao]               = useState<Record<number, EdicaoNotas>>({});
-  const [salvando,             setSalvando]             = useState<Record<number, boolean>>({});
-  const [carregandoDisc,       setCarregandoDisc]       = useState(false);
-  const [carregandoNotas,      setCarregandoNotas]      = useState(false);
+  const [notas,                 setNotas]                 = useState<NotaTurma[]>([]);
+  const [edicao,                setEdicao]                = useState<Record<number, EdicaoNotas>>({});
+  const [salvando,              setSalvando]              = useState<Record<number, boolean>>({});
+  const [carregandoDisc,        setCarregandoDisc]        = useState(false);
+  const [carregandoNotas,       setCarregandoNotas]       = useState(false);
 
-  // Carrega disciplinas do professor ao montar
   useEffect(() => {
     async function carregarDisciplinas() {
       setCarregandoDisc(true);
@@ -65,7 +75,6 @@ export default function LancamentoNotasScreen() {
       const resp = await notasService.listarPorDisciplina(disc.id);
       setNotas(resp.notas);
 
-      // Pré-popula o estado de edição com as notas existentes
       const estadoInicial: Record<number, EdicaoNotas> = {};
       for (const n of resp.notas) {
         estadoInicial[n.aluno_id] = {
@@ -82,7 +91,6 @@ export default function LancamentoNotasScreen() {
   }, []);
 
   const atualizarNota = (alunoId: number, campo: 'nota1' | 'nota2', valor: string) => {
-    // Permite apenas números com até 1 casa decimal no intervalo 0-10
     if (valor !== '' && !/^\d{0,2}([.,]\d?)?$/.test(valor)) return;
     setEdicao((prev) => ({
       ...prev,
@@ -92,7 +100,6 @@ export default function LancamentoNotasScreen() {
 
   const salvarAluno = async (nota: NotaTurma) => {
     if (!disciplinaSelecionada) return;
-
     const campos = edicao[nota.aluno_id];
     if (!campos) return;
 
@@ -118,8 +125,6 @@ export default function LancamentoNotasScreen() {
         nota1,
         nota2,
       });
-
-      // Atualiza localmente para refletir média/situação sem nova requisição
       await selecionarDisciplina(disciplinaSelecionada);
     } catch (err: any) {
       Alert.alert('Erro ao salvar', err.message);
@@ -128,7 +133,7 @@ export default function LancamentoNotasScreen() {
     }
   };
 
-  // Tela de seleção de disciplina
+  // Seleção de disciplina
   if (!disciplinaSelecionada) {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -160,12 +165,11 @@ export default function LancamentoNotasScreen() {
     );
   }
 
-  // Tela de lançamento de notas
+  // Lançamento de notas
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false}>
 
-        {/* Cabeçalho da disciplina selecionada */}
         <TouchableOpacity style={estilos.chipVoltar} onPress={() => setDisciplinaSelecionada(null)}>
           <Text style={estilos.chipVoltarTexto}>← Trocar disciplina</Text>
         </TouchableOpacity>
@@ -186,69 +190,77 @@ export default function LancamentoNotasScreen() {
           <Text style={estilos.textoSecundario}>Nenhum aluno matriculado nesta disciplina.</Text>
         ) : (
           <>
-            {/* Cabeçalho da tabela */}
+            {/* Cabeçalho visual da tabela */}
             <View style={estilos.tabelaCabecalho}>
               <Text style={[estilos.colAluno, estilos.thTexto]}>Aluno</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N1</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N2</Text>
               <Text style={[estilos.colMedia, estilos.thTexto]}>Méd.</Text>
-              <Text style={[estilos.colAcao,  estilos.thTexto]}> </Text>
+              <View style={estilos.colAcao} />
             </View>
 
+            {/* Card por aluno */}
             {notas.map((item) => {
-              const campos  = edicao[item.aluno_id] ?? { nota1: '', nota2: '' };
+              const campos     = edicao[item.aluno_id] ?? { nota1: '', nota2: '' };
               const isSalvando = salvando[item.aluno_id] ?? false;
-              const situacao   = item.situacao;
-
-              let corBadge = theme.colors.textSecondary;
-              if (situacao === 'Aprovado')  corBadge = theme.colors.success;
-              if (situacao === 'Exame')     corBadge = theme.colors.warning;
-              if (situacao === 'Reprovado') corBadge = theme.colors.danger;
 
               return (
-                <View key={item.aluno_id} style={estilos.linha}>
-                  <View style={estilos.colAluno}>
-                    <Text style={estilos.alunoNome} numberOfLines={1}>{item.aluno}</Text>
-                    <Text style={estilos.alunoMatricula}>{item.matricula}</Text>
-                    {situacao && (
-                      <Text style={[estilos.situacaoTexto, { color: corBadge }]}>{situacao}</Text>
-                    )}
+                <View key={item.aluno_id} style={estilos.cartaoAluno}>
+                  {/* Linha 1: nome, matrícula e badge */}
+                  <View style={estilos.linhaInfo}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={estilos.alunoNome} numberOfLines={1}>{item.aluno}</Text>
+                      <Text style={estilos.alunoMatricula}>Matrícula: {item.matricula}</Text>
+                    </View>
+                    <BadgeSituacao situacao={item.situacao} />
                   </View>
 
-                  <TextInput
-                    style={estilos.inputNota}
-                    value={campos.nota1}
-                    onChangeText={(v) => atualizarNota(item.aluno_id, 'nota1', v)}
-                    keyboardType="decimal-pad"
-                    placeholder="—"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    maxLength={4}
-                  />
+                  {/* Linha 2: inputs + média + salvar */}
+                  <View style={estilos.linhaNotas}>
+                    <View style={estilos.grupoInput}>
+                      <Text style={estilos.labelNota}>N1</Text>
+                      <TextInput
+                        style={estilos.inputNota}
+                        value={campos.nota1}
+                        onChangeText={(v) => atualizarNota(item.aluno_id, 'nota1', v)}
+                        keyboardType="decimal-pad"
+                        placeholder="—"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        maxLength={4}
+                      />
+                    </View>
 
-                  <TextInput
-                    style={estilos.inputNota}
-                    value={campos.nota2}
-                    onChangeText={(v) => atualizarNota(item.aluno_id, 'nota2', v)}
-                    keyboardType="decimal-pad"
-                    placeholder="—"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    maxLength={4}
-                  />
+                    <View style={estilos.grupoInput}>
+                      <Text style={estilos.labelNota}>N2</Text>
+                      <TextInput
+                        style={estilos.inputNota}
+                        value={campos.nota2}
+                        onChangeText={(v) => atualizarNota(item.aluno_id, 'nota2', v)}
+                        keyboardType="decimal-pad"
+                        placeholder="—"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        maxLength={4}
+                      />
+                    </View>
 
-                  <Text style={estilos.mediaTexto}>
-                    {item.media != null ? Number(item.media).toFixed(1) : '—'}
-                  </Text>
+                    <View style={estilos.grupoMedia}>
+                      <Text style={estilos.labelNota}>Méd.</Text>
+                      <Text style={estilos.mediaTexto}>
+                        {item.media != null ? Number(item.media).toFixed(1) : '—'}
+                      </Text>
+                    </View>
 
-                  <TouchableOpacity
-                    style={[estilos.botaoSalvar, isSalvando && estilos.botaoSalvarDisabled]}
-                    onPress={() => salvarAluno(item)}
-                    disabled={isSalvando}
-                  >
-                    {isSalvando
-                      ? <ActivityIndicator size="small" color={theme.colors.white} />
-                      : <Text style={estilos.botaoSalvarTexto}>✓</Text>
-                    }
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[estilos.botaoSalvar, isSalvando && estilos.botaoSalvarDisabled]}
+                      onPress={() => salvarAluno(item)}
+                      disabled={isSalvando}
+                    >
+                      {isSalvando
+                        ? <ActivityIndicator size="small" color={theme.colors.white} />
+                        : <Text style={estilos.botaoSalvarTexto}>✓</Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -273,19 +285,25 @@ const estilos = StyleSheet.create({
   cabecalho:           { backgroundColor: theme.colors.primary, borderRadius: theme.radius.md, padding: theme.spacing.md, marginBottom: theme.spacing.lg },
   cabecalhoTitulo:     { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.white },
   cabecalhoSub:        { fontSize: theme.font.sm, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  tabelaCabecalho:     { flexDirection: 'row', backgroundColor: theme.colors.primary, borderTopLeftRadius: theme.radius.sm, borderTopRightRadius: theme.radius.sm, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm, alignItems: 'center' },
-  thTexto:             { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm, textAlign: 'center' },
-  linha:               { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm, borderBottomWidth: 0.5, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  colAluno:            { flex: 3, paddingRight: theme.spacing.xs },
-  colNota:             { flex: 1, textAlign: 'center' },
-  colMedia:            { flex: 1, textAlign: 'center' },
-  colAcao:             { width: 36 },
-  alunoNome:           { fontSize: theme.font.sm, fontWeight: '600', color: theme.colors.text },
-  alunoMatricula:      { fontSize: 11, color: theme.colors.textSecondary },
-  situacaoTexto:       { fontSize: 11, fontWeight: '700', marginTop: 1 },
-  inputNota:           { flex: 1, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.sm, paddingVertical: 4, paddingHorizontal: 4, fontSize: theme.font.sm, textAlign: 'center', backgroundColor: theme.colors.background, marginHorizontal: 2, color: theme.colors.text },
-  mediaTexto:          { flex: 1, fontSize: theme.font.sm, fontWeight: '700', textAlign: 'center', color: theme.colors.text },
-  botaoSalvar:         { width: 32, height: 32, borderRadius: theme.radius.sm, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  tabelaCabecalho:     { flexDirection: 'row', backgroundColor: theme.colors.primary, borderRadius: theme.radius.sm, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, alignItems: 'center', marginBottom: theme.spacing.xs },
+  thTexto:             { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
+  colAluno:            { flex: 1 },
+  colNota:             { width: 48, textAlign: 'center' },
+  colMedia:            { width: 48, textAlign: 'center' },
+  colAcao:             { width: 40 },
+  cartaoAluno:         { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, marginBottom: theme.spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  linhaInfo:           { flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.spacing.sm, gap: theme.spacing.sm },
+  linhaNotas:          { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  alunoNome:           { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
+  alunoMatricula:      { fontSize: theme.font.sm, color: theme.colors.textSecondary, marginTop: 2 },
+  badge:               { paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radius.full },
+  badgeTexto:          { fontSize: 12, fontWeight: '700' },
+  grupoInput:          { alignItems: 'center', gap: 4 },
+  grupoMedia:          { alignItems: 'center', gap: 4, width: 48 },
+  labelNota:           { fontSize: 11, color: theme.colors.textSecondary, fontWeight: '600' },
+  inputNota:           { width: 52, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.sm, paddingVertical: 6, paddingHorizontal: 4, fontSize: theme.font.md, textAlign: 'center', backgroundColor: theme.colors.background, color: theme.colors.text },
+  mediaTexto:          { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text, textAlign: 'center' },
+  botaoSalvar:         { width: 40, height: 40, borderRadius: theme.radius.sm, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
   botaoSalvarDisabled: { opacity: 0.5 },
   botaoSalvarTexto:    { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.md },
 });
