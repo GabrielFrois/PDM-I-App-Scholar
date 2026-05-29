@@ -1,8 +1,8 @@
 const express = require('express');
 const router  = express.Router();
 
-const { autenticar } = require('../middlewares/auth');
-const { autorizar }  = require('../middlewares/autorizar');
+const { autenticar }      = require('../middlewares/auth');
+const { autorizar }       = require('../middlewares/autorizar');
 
 const authController        = require('../controllers/authController');
 const alunosController      = require('../controllers/alunosController');
@@ -15,16 +15,16 @@ const notasController       = require('../controllers/notasController');
 router.post('/login', authController.login);
 
 // Alunos
-router.post('/alunos',        autenticar, autorizar('admin'),              alunosController.cadastrar);
-router.get('/alunos',         autenticar, autorizar('admin', 'professor'), alunosController.listar);
-router.put('/alunos/:id',     autenticar, autorizar('admin', 'aluno'),     alunosController.atualizar);
-router.delete('/alunos/:id',  autenticar, autorizar('admin'),              alunosController.remover);
+router.post('/alunos',        autenticar, autorizar('admin'),                        alunosController.cadastrar);
+router.get('/alunos',         autenticar, autorizar('admin', 'professor', 'aluno'),  alunosController.listar);
+router.put('/alunos/:id',     autenticar, autorizar('admin', 'aluno'),               alunosController.atualizar);
+router.delete('/alunos/:id',  autenticar, autorizar('admin'),                        alunosController.remover);
 
 // Professores
-router.post('/professores',       autenticar, autorizar('admin'),                  professoresController.cadastrar);
-router.get('/professores',        autenticar, autorizar('admin', 'professor'),     professoresController.listar);
-router.put('/professores/:id',    autenticar, autorizar('admin', 'professor'),     professoresController.atualizar);
-router.delete('/professores/:id', autenticar, autorizar('admin'),                  professoresController.remover);
+router.post('/professores',       autenticar, autorizar('admin'),              professoresController.cadastrar);
+router.get('/professores',        autenticar, autorizar('admin', 'professor'), professoresController.listar);
+router.put('/professores/:id',    autenticar, autorizar('admin', 'professor'), professoresController.atualizar);
+router.delete('/professores/:id', autenticar, autorizar('admin'),              professoresController.remover);
 
 // Disciplinas
 router.post('/disciplinas',       autenticar, autorizar('admin'),              disciplinasController.cadastrar);

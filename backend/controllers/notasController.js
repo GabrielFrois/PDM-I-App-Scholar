@@ -10,9 +10,9 @@ async function listarPorDisciplina(req, res) {
   const { perfil, professorId } = req.usuario;
 
   try {
-    // Verifica se a disciplina existe e, para professor, se lhe pertence
+    // deleted_at IS NULL para ignorar disciplinas removidas
     const discResult = await pool.query(
-      'SELECT id, nome, professor_id FROM disciplinas WHERE id = $1',
+      'SELECT id, nome, professor_id FROM disciplinas WHERE id = $1 AND deleted_at IS NULL',
       [disciplinaId]
     );
 
@@ -35,7 +35,7 @@ async function listarPorDisciplina(req, res) {
          n.media,
          n.situacao
        FROM notas n
-       JOIN alunos a ON a.id = n.aluno_id
+       JOIN alunos a ON a.id = n.aluno_id AND a.deleted_at IS NULL
        WHERE n.disciplina_id = $1
        ORDER BY a.nome`,
       [disciplinaId]
@@ -67,12 +67,10 @@ async function lancarOuAtualizar(req, res) {
     return res.status(400).json({ erro: 'alunoId e disciplinaId são obrigatórios.' });
   }
 
-  // Pelo menos uma nota deve ser informada
   if (nota1 == null && nota2 == null) {
     return res.status(400).json({ erro: 'Informe ao menos nota1 ou nota2.' });
   }
 
-  // Valida range das notas fornecidas
   if (nota1 != null && (isNaN(nota1) || nota1 < 0 || nota1 > 10)) {
     return res.status(400).json({ erro: 'nota1 deve estar entre 0 e 10.' });
   }
@@ -81,9 +79,9 @@ async function lancarOuAtualizar(req, res) {
   }
 
   try {
-    // Verifica se a disciplina pertence ao professor
+    // deleted_at IS NULL para bloquear notas em disciplinas removidas
     const discResult = await pool.query(
-      'SELECT id, professor_id FROM disciplinas WHERE id = $1',
+      'SELECT id, professor_id FROM disciplinas WHERE id = $1 AND deleted_at IS NULL',
       [disciplinaId]
     );
 
@@ -95,13 +93,14 @@ async function lancarOuAtualizar(req, res) {
       return res.status(403).json({ erro: 'Você só pode lançar notas nas suas disciplinas.' });
     }
 
-    // Verifica se o aluno existe
-    const alunoResult = await pool.query('SELECT id FROM alunos WHERE id = $1', [alunoId]);
+    const alunoResult = await pool.query(
+      'SELECT id FROM alunos WHERE id = $1 AND deleted_at IS NULL',
+      [alunoId]
+    );
     if (alunoResult.rows.length === 0) {
       return res.status(404).json({ erro: 'Aluno não encontrado.' });
     }
 
-    // Upsert: insere ou atualiza apenas os campos enviados
     const result = await pool.query(
       `INSERT INTO notas (aluno_id, disciplina_id, nota1, nota2)
        VALUES ($1, $2, $3, $4)

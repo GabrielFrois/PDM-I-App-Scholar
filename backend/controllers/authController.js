@@ -27,13 +27,14 @@ async function login(req, res) {
       return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
     }
 
+
     let matricula   = null;
     let professorId = null;
     let nome        = email.split('@')[0];
 
     if (usuario.perfil === 'aluno') {
       const alunoResult = await pool.query(
-        'SELECT nome, matricula FROM alunos WHERE email = $1',
+        'SELECT nome, matricula FROM alunos WHERE email = $1 AND deleted_at IS NULL',
         [email]
       );
       if (alunoResult.rows.length > 0) {
@@ -44,7 +45,7 @@ async function login(req, res) {
 
     if (usuario.perfil === 'professor') {
       const profResult = await pool.query(
-        'SELECT id, nome FROM professores WHERE email = $1',
+        'SELECT id, nome FROM professores WHERE email = $1 AND deleted_at IS NULL',
         [email]
       );
       if (profResult.rows.length > 0) {
@@ -53,7 +54,6 @@ async function login(req, res) {
       }
     }
 
-    // matricula incluída no payload para validação no boletim
     const token = jwt.sign(
       { id: usuario.id, email: usuario.email, perfil: usuario.perfil, professorId, matricula },
       process.env.JWT_SECRET,

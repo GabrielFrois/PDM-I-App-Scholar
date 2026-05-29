@@ -54,8 +54,8 @@ export default function LancamentoNotasScreen() {
     async function carregarDisciplinas() {
       setCarregandoDisc(true);
       try {
-        const { data } = await api.get<Disciplina[]>('/api/disciplinas');
-        setDisciplinas(data);
+        const { data } = await api.get<{ dados: Disciplina[] }>('/api/disciplinas');
+        setDisciplinas(data.dados);
       } catch (err: any) {
         Alert.alert('Erro', err.message || 'Não foi possível carregar as disciplinas.');
       } finally {

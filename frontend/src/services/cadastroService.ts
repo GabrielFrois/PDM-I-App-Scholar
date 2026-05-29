@@ -32,27 +32,51 @@ function extrairMensagemErro(err: unknown): string {
 }
 
 export const cadastroService = {
-  salvarAluno: async (dados: DadosAluno) => { try { await api.post('/api/alunos', dados); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
-  atualizarAluno: async (id: number, dados: DadosAluno) => { try { await api.put(`/api/alunos/${id}`, dados); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
-  removerAluno: async (id: number) => { try { await api.delete(`/api/alunos/${id}`); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
+  salvarAluno: async (dados: DadosAluno) => {
+    try { await api.post('/api/alunos', dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  atualizarAluno: async (id: number, dados: DadosAluno) => {
+    try { await api.put(`/api/alunos/${id}`, dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  removerAluno: async (id: number) => {
+    try { await api.delete(`/api/alunos/${id}`); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
 
   buscarAlunoPorEmail: async (email: string): Promise<(AlunoListagem & DadosAluno) | null> => {
     try {
       const { data } = await api.get<(AlunoListagem & DadosAluno) | null>('/api/alunos', { params: { email } });
       return data;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   },
 
-  listarAlunos: async (pagina = 1, limite = 20): Promise<RespostaPaginada<AlunoListagem>> => {
+  listarAlunos: async (pagina = 1, limite = 200): Promise<AlunoListagem[]> => {
     try {
       const { data } = await api.get<RespostaPaginada<AlunoListagem>>('/api/alunos', { params: { pagina, limite } });
-      return data;
+      return data.dados;
     } catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  salvarProfessor: async (dados: DadosProfessor) => { try { await api.post('/api/professores', dados); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
-  atualizarProfessor: async (id: number, dados: DadosProfessor) => { try { await api.put(`/api/professores/${id}`, dados); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
-  removerProfessor: async (id: number) => { try { await api.delete(`/api/professores/${id}`); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
+  salvarProfessor: async (dados: DadosProfessor) => {
+    try { await api.post('/api/professores', dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  atualizarProfessor: async (id: number, dados: DadosProfessor) => {
+    try { await api.put(`/api/professores/${id}`, dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  removerProfessor: async (id: number) => {
+    try { await api.delete(`/api/professores/${id}`); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
 
   buscarProfessorPorEmail: async (email: string): Promise<ProfessorListagem | null> => {
     try {
@@ -68,6 +92,13 @@ export const cadastroService = {
     } catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  salvarDisciplina: async (dados: DadosDisciplina) => { try { await api.post('/api/disciplinas', dados); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
-  removerDisciplina: async (id: number) => { try { await api.delete(`/api/disciplinas/${id}`); } catch (err) { throw new Error(extrairMensagemErro(err)); } },
+  salvarDisciplina: async (dados: DadosDisciplina) => {
+    try { await api.post('/api/disciplinas', dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  removerDisciplina: async (id: number) => {
+    try { await api.delete(`/api/disciplinas/${id}`); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
 };
