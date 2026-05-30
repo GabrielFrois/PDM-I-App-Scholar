@@ -1,10 +1,6 @@
 const pool = require('../database/db');
 
-/**
- * POST /api/disciplinas
- * Body: { nomeDisciplina, cargaHoraria, professorId, curso, semestre }
- * Agora recebe professorId (número) em vez de nome do professor.
- */
+/** POST /api/disciplinas */
 async function cadastrar(req, res) {
   const { nomeDisciplina, cargaHoraria, professorId, curso, semestre } = req.body;
 
@@ -15,7 +11,10 @@ async function cadastrar(req, res) {
   try {
     let profIdFinal = null;
     if (professorId) {
-      const prof = await pool.query('SELECT id FROM professores WHERE id = $1', [professorId]);
+      const prof = await pool.query(
+        'SELECT id FROM professores WHERE id = $1 AND deleted_at IS NULL',
+        [professorId]
+      );
       if (prof.rows.length === 0) {
         return res.status(404).json({ erro: 'Professor não encontrado.' });
       }
@@ -39,7 +38,7 @@ async function cadastrar(req, res) {
   }
 }
 
-/** GET /api/disciplinas — paginado, ?pagina=&limite= */
+/** GET /api/disciplinas */
 async function listar(req, res) {
   const { perfil, professorId } = req.usuario;
 
@@ -48,7 +47,7 @@ async function listar(req, res) {
   const offset = (pagina - 1) * limite;
 
   try {
-    const baseWhere = perfil === 'professor' ? 'WHERE d.professor_id = $1' : '';
+    const baseWhere = perfil === 'professor' ? 'WHERE d.professor_id = $1 AND d.deleted_at IS NULL' : 'WHERE d.deleted_at IS NULL';
     const params    = perfil === 'professor' ? [professorId, limite, offset] : [limite, offset];
     const p1        = perfil === 'professor' ? '$2' : '$1';
     const p2        = perfil === 'professor' ? '$3' : '$2';
@@ -82,6 +81,54 @@ async function listar(req, res) {
   }
 }
 
+/** PUT /api/disciplinas/:id — somente admin. */
+async function atualizar(req, res) {
+  const { id } = req.params;
+  const { nomeDisciplina, cargaHoraria, professorId, curso, semestre } = req.body;
+
+  if (!nomeDisciplina || !cargaHoraria || !curso || !semestre) {
+    return res.status(400).json({ erro: 'Nome, carga horária, curso e semestre são obrigatórios.' });
+  }
+
+  try {
+    const existente = await pool.query(
+      'SELECT id FROM disciplinas WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    if (existente.rows.length === 0) {
+      return res.status(404).json({ erro: 'Disciplina não encontrada.' });
+    }
+
+    let profIdFinal = null;
+    if (professorId) {
+      const prof = await pool.query(
+        'SELECT id FROM professores WHERE id = $1 AND deleted_at IS NULL',
+        [professorId]
+      );
+      if (prof.rows.length === 0) {
+        return res.status(404).json({ erro: 'Professor não encontrado.' });
+      }
+      profIdFinal = prof.rows[0].id;
+    }
+
+    const result = await pool.query(
+      `UPDATE disciplinas
+          SET nome = $1, carga_horaria = $2, professor_id = $3, curso = $4, semestre = $5
+        WHERE id = $6
+       RETURNING id, nome, carga_horaria, curso, semestre`,
+      [nomeDisciplina, parseInt(cargaHoraria), profIdFinal, curso, semestre, id]
+    );
+
+    return res.json({
+      mensagem:   'Disciplina atualizada com sucesso!',
+      disciplina: result.rows[0],
+    });
+  } catch (err) {
+    console.error('[disciplinas.atualizar]', err.message);
+    return res.status(500).json({ erro: 'Erro interno do servidor.' });
+  }
+}
+
 /** DELETE /api/disciplinas/:id — somente admin. Soft delete. */
 async function remover(req, res) {
   const { id } = req.params;
@@ -104,4 +151,4 @@ async function remover(req, res) {
   }
 }
 
-module.exports = { cadastrar, listar, remover };
+module.exports = { cadastrar, listar, atualizar, remover };

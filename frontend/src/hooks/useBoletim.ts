@@ -1,46 +1,48 @@
 import { useEffect, useState } from 'react';
-import { boletimService, type Nota } from '../services/boletimService';
+import { boletimService, type Nota, type RespostaBoletim } from '../services/boletimService';
 
 type EstadoBoletim = {
-  notas: Nota[];
+  boletim:    RespostaBoletim | null;
   carregando: boolean;
-  erro: string | null;
+  erro:       string | null;
 };
 
-// Recebe matrícula agora (o backend busca por /boletim/:matricula)
 export function useBoletim(matricula?: string | null) {
   const [estado, setEstado] = useState<EstadoBoletim>({
-    notas: [],
-    carregando: true,
-    erro: null,
+    boletim:    null,
+    carregando: false,
+    erro:       null,
   });
 
   useEffect(() => {
     if (!matricula) {
-      setEstado({ notas: [], carregando: false, erro: null });
+      setEstado({ boletim: null, carregando: false, erro: null });
       return;
     }
 
-    setEstado({ notas: [], carregando: true, erro: null });
+    setEstado({ boletim: null, carregando: true, erro: null });
 
     boletimService
-      .buscarNotas(matricula)
-      .then((notas) => setEstado({ notas, carregando: false, erro: null }))
+      .buscarBoletim(matricula)
+      .then((boletim) => setEstado({ boletim, carregando: false, erro: null }))
       .catch((err: any) => {
-        const mensagem =
-          err.response?.data?.erro || err.message || 'Erro ao carregar boletim.';
-        setEstado({ notas: [], carregando: false, erro: mensagem });
+        const mensagem = err.message || 'Erro ao carregar boletim.';
+        setEstado({ boletim: null, carregando: false, erro: mensagem });
       });
   }, [matricula]);
 
-  const aprovadas  = estado.notas.filter((n) => n.situacao === 'Aprovado').length;
-  const reprovadas = estado.notas.filter((n) => n.situacao === 'Reprovado').length;
-  const emExame    = estado.notas.filter((n) => n.situacao === 'Exame').length;
+  const notas: Nota[]  = estado.boletim?.disciplinas ?? [];
+  const aprovadas      = notas.filter((n) => n.situacao === 'Aprovado').length;
+  const reprovadas     = notas.filter((n) => n.situacao === 'Reprovado').length;
+  const emExame        = notas.filter((n) => n.situacao === 'Exame').length;
 
   return {
-    notas: estado.notas,
+    notas,
+    nomeAluno:  estado.boletim?.aluno      ?? null,
+    curso:      estado.boletim?.curso      ?? null,
+    matricula:  estado.boletim?.matricula  ?? null,
     carregando: estado.carregando,
-    erro: estado.erro,
+    erro:       estado.erro,
     aprovadas,
     reprovadas,
     emExame,

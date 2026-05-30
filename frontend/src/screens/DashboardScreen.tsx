@@ -98,12 +98,11 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
   ],
 };
 
-
 export default function DashboardScreen() {
-  const navegacao = useNavigation<Navegacao>();
+  const navegacao  = useNavigation<Navegacao>();
   const { user, logout } = useAuth();
 
-  const perfil = user?.perfil ?? 'aluno';
+  const perfil    = user?.perfil ?? 'aluno';
   const itensMenu = MENUS[perfil];
 
   return (
@@ -114,9 +113,7 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={estilos.saudacao}>
-          <View style={estilos.saudacaoLinha}>
-            <Text style={estilos.saudacaoTexto}>Olá, {user?.nome}</Text>
-          </View>
+          <Text style={estilos.saudacaoTexto}>Olá, {user?.nome}</Text>
           <Text style={estilos.saudacaoSubtexto}>O que deseja fazer hoje?</Text>
         </View>
 
@@ -149,11 +146,8 @@ const estilos = StyleSheet.create({
   scroll:           { flex: 1 },
   conteudo:         { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
   saudacao:         { marginBottom: theme.spacing.xl },
-  saudacaoLinha:    { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: theme.spacing.sm },
   saudacaoTexto:    { fontSize: theme.font.xl, fontWeight: '700', color: theme.colors.text },
   saudacaoSubtexto: { fontSize: theme.font.md, color: theme.colors.textSecondary, marginTop: theme.spacing.xs },
-  badgePerfil:      { paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radius.full },
-  badgeTexto:       { fontSize: theme.font.sm, fontWeight: '700' },
   grade:            { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md },
   card:             { width: '47%', borderRadius: theme.radius.md, padding: theme.spacing.md, minHeight: 130, justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   cardTitulo:       { fontSize: theme.font.md, fontWeight: '700', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },

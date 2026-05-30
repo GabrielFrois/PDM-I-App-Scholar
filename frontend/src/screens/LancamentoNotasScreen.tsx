@@ -10,16 +10,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { api } from '../services/api';
+import { cadastroService, type DisciplinaListagem } from '../services/cadastroService';
 import { notasService, type NotaTurma } from '../services/notasService';
 import { theme } from '../styles/theme';
-
-type Disciplina = {
-  id:       number;
-  nome:     string;
-  curso:    string;
-  semestre: string;
-};
 
 type EdicaoNotas = {
   nota1: string;
@@ -42,8 +35,8 @@ function BadgeSituacao({ situacao }: { situacao: NotaTurma['situacao'] }) {
 }
 
 export default function LancamentoNotasScreen() {
-  const [disciplinas,           setDisciplinas]           = useState<Disciplina[]>([]);
-  const [disciplinaSelecionada, setDisciplinaSelecionada] = useState<Disciplina | null>(null);
+  const [disciplinas,           setDisciplinas]           = useState<DisciplinaListagem[]>([]);
+  const [disciplinaSelecionada, setDisciplinaSelecionada] = useState<DisciplinaListagem | null>(null);
   const [notas,                 setNotas]                 = useState<NotaTurma[]>([]);
   const [edicao,                setEdicao]                = useState<Record<number, EdicaoNotas>>({});
   const [salvando,              setSalvando]              = useState<Record<number, boolean>>({});
@@ -54,8 +47,7 @@ export default function LancamentoNotasScreen() {
     async function carregarDisciplinas() {
       setCarregandoDisc(true);
       try {
-        const { data } = await api.get<{ dados: Disciplina[] }>('/api/disciplinas');
-        setDisciplinas(data.dados);
+        setDisciplinas(await cadastroService.listarDisciplinas());
       } catch (err: any) {
         Alert.alert('Erro', err.message || 'Não foi possível carregar as disciplinas.');
       } finally {
@@ -65,7 +57,7 @@ export default function LancamentoNotasScreen() {
     carregarDisciplinas();
   }, []);
 
-  const selecionarDisciplina = useCallback(async (disc: Disciplina) => {
+  const selecionarDisciplina = useCallback(async (disc: DisciplinaListagem) => {
     setDisciplinaSelecionada(disc);
     setNotas([]);
     setEdicao({});
@@ -190,7 +182,6 @@ export default function LancamentoNotasScreen() {
           <Text style={estilos.textoSecundario}>Nenhum aluno matriculado nesta disciplina.</Text>
         ) : (
           <>
-            {/* Cabeçalho visual da tabela */}
             <View style={estilos.tabelaCabecalho}>
               <Text style={[estilos.colAluno, estilos.thTexto]}>Aluno</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N1</Text>
@@ -199,14 +190,12 @@ export default function LancamentoNotasScreen() {
               <View style={estilos.colAcao} />
             </View>
 
-            {/* Card por aluno */}
             {notas.map((item) => {
               const campos     = edicao[item.aluno_id] ?? { nota1: '', nota2: '' };
               const isSalvando = salvando[item.aluno_id] ?? false;
 
               return (
                 <View key={item.aluno_id} style={estilos.cartaoAluno}>
-                  {/* Linha 1: nome, matrícula e badge */}
                   <View style={estilos.linhaInfo}>
                     <View style={{ flex: 1 }}>
                       <Text style={estilos.alunoNome} numberOfLines={1}>{item.aluno}</Text>
@@ -215,7 +204,6 @@ export default function LancamentoNotasScreen() {
                     <BadgeSituacao situacao={item.situacao} />
                   </View>
 
-                  {/* Linha 2: inputs + média + salvar */}
                   <View style={estilos.linhaNotas}>
                     <View style={estilos.grupoInput}>
                       <Text style={estilos.labelNota}>N1</Text>

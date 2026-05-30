@@ -38,7 +38,8 @@ export default function BoletimScreen() {
   const [carregandoAlunos, setCarregandoAlunos] = useState(false);
   const [pagina,           setPagina]           = useState(1);
 
-  const { notas, carregando, erro, aprovadas, reprovadas, emExame } = useBoletim(matriculaBusca);
+  const { notas, nomeAluno, curso, carregando, erro, aprovadas, reprovadas, emExame } =
+    useBoletim(matriculaBusca);
 
   useEffect(() => {
     if (perfil !== 'admin') return;
@@ -71,7 +72,6 @@ export default function BoletimScreen() {
     setPagina(1);
   };
 
-  // Filtra localmente enquanto o admin digita
   const alunosFiltrados = alunos.filter((a) => {
     const termo = inputMatricula.trim().toLowerCase();
     if (!termo) return true;
@@ -81,14 +81,18 @@ export default function BoletimScreen() {
     );
   });
 
-  const totalPaginas  = Math.ceil(alunosFiltrados.length / ALUNOS_POR_PAGINA);
-  const alunosPagina  = alunosFiltrados.slice(
+  const totalPaginas = Math.ceil(alunosFiltrados.length / ALUNOS_POR_PAGINA);
+  const alunosPagina = alunosFiltrados.slice(
     (pagina - 1) * ALUNOS_POR_PAGINA,
     pagina * ALUNOS_POR_PAGINA,
   );
 
   const mostrarListaAlunos = perfil === 'admin' && !matriculaBusca;
   const mostrarBoletim     = !!matriculaBusca && !carregando && !erro;
+
+  // Nome exibido no cabeçalho do boletim
+  const nomeExibido = perfil === 'aluno' ? (user?.nome ?? '') : (nomeAluno ?? `Matrícula: ${matriculaBusca}`);
+  const cursoExibido = curso ?? '';
 
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -167,9 +171,7 @@ export default function BoletimScreen() {
                         ‹ Anterior
                       </Text>
                     </TouchableOpacity>
-
                     <Text style={estilos.pagInfo}>{pagina} / {totalPaginas}</Text>
-
                     <TouchableOpacity
                       style={[estilos.pagBotao, pagina === totalPaginas && estilos.pagBotaoDisabled]}
                       onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
@@ -205,35 +207,18 @@ export default function BoletimScreen() {
         {!carregando && erro && (
           <View style={estilos.containerCentro}>
             <Text style={{ color: theme.colors.danger, textAlign: 'center' }}>{erro}</Text>
-            {perfil !== 'aluno' && (
-              <TouchableOpacity
-                style={estilos.voltarLista}
-                onPress={() => { setMatriculaBusca(undefined); setInputMatricula(''); }}
-              >
-                <Text style={estilos.voltarListaTexto}>← Voltar para lista</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
         {/* Boletim */}
-        {mostrarBoletim && notas.length >= 0 && (
+        {mostrarBoletim && (
           <>
-            {perfil !== 'aluno' && (
-              <TouchableOpacity
-                style={estilos.voltarLista}
-                onPress={() => { setMatriculaBusca(undefined); setInputMatricula(''); }}
-              >
-                <Text style={estilos.voltarListaTexto}>← Voltar para lista</Text>
-              </TouchableOpacity>
-            )}
-
             <View style={estilos.cabecalho}>
               <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
-              <Text style={estilos.cabecalhoNome}>
-                {perfil === 'aluno' ? user?.nome : `Matrícula: ${matriculaBusca}`}
-              </Text>
-              <Text style={estilos.cabecalhoSemestre}>4º Semestre / 2026</Text>
+              <Text style={estilos.cabecalhoNome}>{nomeExibido}</Text>
+              {cursoExibido ? (
+                <Text style={estilos.cabecalhoSemestre}>{cursoExibido}</Text>
+              ) : null}
             </View>
 
             <View style={estilos.resumo}>
@@ -309,8 +294,6 @@ const estilos = StyleSheet.create({
   pagBotaoTexto:        { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
   pagTextoDisabled:     { color: theme.colors.textSecondary },
   pagInfo:              { fontSize: theme.font.sm, color: theme.colors.textSecondary, fontWeight: '600' },
-  voltarLista:          { alignSelf: 'flex-start', marginBottom: theme.spacing.md, paddingHorizontal: theme.spacing.sm, paddingVertical: 4, backgroundColor: theme.colors.secondary, borderRadius: theme.radius.full },
-  voltarListaTexto:     { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
   containerCentro:      { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.spacing.xxl, gap: theme.spacing.md },
   textoCarregando:      { fontSize: theme.font.md, color: theme.colors.textSecondary, marginTop: theme.spacing.sm },
   textoSecundario:      { fontSize: theme.font.md, color: theme.colors.textSecondary, textAlign: 'center' },

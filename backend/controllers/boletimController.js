@@ -14,8 +14,9 @@ async function buscarPorMatricula(req, res) {
   }
 
   try {
+    // Respeita soft delete: aluno removido não retorna boletim
     const alunoResult = await pool.query(
-      'SELECT id, nome, matricula, curso FROM alunos WHERE matricula = $1',
+      'SELECT id, nome, matricula, curso FROM alunos WHERE matricula = $1 AND deleted_at IS NULL',
       [matricula]
     );
 
@@ -34,7 +35,7 @@ async function buscarPorMatricula(req, res) {
          n.media,
          n.situacao
        FROM notas n
-       JOIN disciplinas d ON d.id = n.disciplina_id
+       JOIN disciplinas d ON d.id = n.disciplina_id AND d.deleted_at IS NULL
        WHERE n.aluno_id = $1
        ORDER BY d.nome`,
       [aluno.id]

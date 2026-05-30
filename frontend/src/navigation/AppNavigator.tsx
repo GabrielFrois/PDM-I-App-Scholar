@@ -1,14 +1,15 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
-import BoletimScreen          from '../screens/BoletimScreen';
-import CadastroAlunoScreen    from '../screens/CadastroAlunoScreen';
+import BoletimScreen            from '../screens/BoletimScreen';
+import CadastroAlunoScreen      from '../screens/CadastroAlunoScreen';
 import CadastroDisciplinaScreen from '../screens/CadastroDisciplinaScreen';
 import CadastroProfessorScreen  from '../screens/CadastroProfessorScreen';
-import DashboardScreen        from '../screens/DashboardScreen';
-import LancamentoNotasScreen  from '../screens/LancamentoNotasScreen';
-import LoginScreen            from '../screens/LoginScreen';
+import DashboardScreen          from '../screens/DashboardScreen';
+import LancamentoNotasScreen    from '../screens/LancamentoNotasScreen';
+import LoginScreen              from '../screens/LoginScreen';
 
 export type RootStackParamList = {
   Login:              undefined;
@@ -23,7 +24,16 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Evita flash da tela de Login enquanto a sessão é restaurada do SecureStore
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' }}>
+        <ActivityIndicator size="large" color="#1A73E8" />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator

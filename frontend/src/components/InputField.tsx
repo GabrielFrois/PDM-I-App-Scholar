@@ -22,7 +22,7 @@ export default function InputField({ label, hint, error, ...rest }: Props) {
       {hint ? <Text style={estilos.hint}>{hint}</Text> : null}
 
       <TextInput
-        style={[estilos.input, error ? estilos.inputErro : null]}
+        style={[estilos.input, error ? estilos.inputErro : null, rest.editable === false ? estilos.inputBloqueado : null]}
         placeholderTextColor={theme.colors.textSecondary}
         {...rest}
       />
@@ -60,6 +60,11 @@ const estilos = StyleSheet.create({
   },
   inputErro: {
     borderColor: theme.colors.danger,
+  },
+  inputBloqueado: {
+    backgroundColor: '#F0F0F0',
+    color: theme.colors.textSecondary,
+    borderColor: '#E0E0E0',
   },
   textoErro: {
     fontSize: theme.font.sm,

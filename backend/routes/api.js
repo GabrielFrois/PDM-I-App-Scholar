@@ -15,10 +15,10 @@ const notasController       = require('../controllers/notasController');
 router.post('/login', authController.login);
 
 // Alunos
-router.post('/alunos',        autenticar, autorizar('admin'),                        alunosController.cadastrar);
-router.get('/alunos',         autenticar, autorizar('admin', 'professor', 'aluno'),  alunosController.listar);
-router.put('/alunos/:id',     autenticar, autorizar('admin', 'aluno'),               alunosController.atualizar);
-router.delete('/alunos/:id',  autenticar, autorizar('admin'),                        alunosController.remover);
+router.post('/alunos',       autenticar, autorizar('admin'),                       alunosController.cadastrar);
+router.get('/alunos',        autenticar, autorizar('admin', 'professor', 'aluno'), alunosController.listar);
+router.put('/alunos/:id',    autenticar, autorizar('admin', 'aluno'),              alunosController.atualizar);
+router.delete('/alunos/:id', autenticar, autorizar('admin'),                       alunosController.remover);
 
 // Professores
 router.post('/professores',       autenticar, autorizar('admin'),              professoresController.cadastrar);
@@ -27,9 +27,10 @@ router.put('/professores/:id',    autenticar, autorizar('admin', 'professor'), p
 router.delete('/professores/:id', autenticar, autorizar('admin'),              professoresController.remover);
 
 // Disciplinas
-router.post('/disciplinas',       autenticar, autorizar('admin'),              disciplinasController.cadastrar);
+router.post('/disciplinas',       autenticar, autorizar('admin'), disciplinasController.cadastrar);
 router.get('/disciplinas',        autenticar, autorizar('admin', 'professor'), disciplinasController.listar);
-router.delete('/disciplinas/:id', autenticar, autorizar('admin'),              disciplinasController.remover);
+router.put('/disciplinas/:id',    autenticar, autorizar('admin'), disciplinasController.atualizar);
+router.delete('/disciplinas/:id', autenticar, autorizar('admin'), disciplinasController.remover);
 
 // Notas
 router.get('/notas/disciplina/:disciplinaId', autenticar, autorizar('admin', 'professor'), notasController.listarPorDisciplina);
