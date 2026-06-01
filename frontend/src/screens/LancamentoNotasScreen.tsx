@@ -1,3 +1,6 @@
+// Tela de lançamento de notas para professores (e admin)
+// Fluxo: seleciona disciplina -> exibe turma com inputs de N1/N2 por aluno -> salva aluno a aluno
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,11 +17,14 @@ import { cadastroService, type DisciplinaListagem } from '../services/cadastroSe
 import { notasService, type NotaTurma } from '../services/notasService';
 import { theme } from '../styles/theme';
 
+// Estado de edição de notas: uma entrada por aluno, guardada pelo aluno_id
 type EdicaoNotas = {
   nota1: string;
   nota2: string;
 };
 
+// Componente para o badge colorido de situação (Aprovado / Exame / Reprovado)
+// Retorna null se a situação ainda for null (notas não lançadas)
 function BadgeSituacao({ situacao }: { situacao: NotaTurma['situacao'] }) {
   if (!situacao) return null;
   const cores: Record<string, { bg: string; fg: string }> = {
@@ -38,11 +44,17 @@ export default function LancamentoNotasScreen() {
   const [disciplinas,           setDisciplinas]           = useState<DisciplinaListagem[]>([]);
   const [disciplinaSelecionada, setDisciplinaSelecionada] = useState<DisciplinaListagem | null>(null);
   const [notas,                 setNotas]                 = useState<NotaTurma[]>([]);
-  const [edicao,                setEdicao]                = useState<Record<number, EdicaoNotas>>({});
-  const [salvando,              setSalvando]              = useState<Record<number, boolean>>({});
-  const [carregandoDisc,        setCarregandoDisc]        = useState(false);
-  const [carregandoNotas,       setCarregandoNotas]       = useState(false);
 
+  // edicao: mapa de alunoId -> { nota1, nota2 } com os valores que o professor está digitando
+  const [edicao,   setEdicao]   = useState<Record<number, EdicaoNotas>>({});
+  // salvando: mapa de alunoId -> boolean para controlar o spinner individual de cada aluno
+  const [salvando, setSalvando] = useState<Record<number, boolean>>({});
+
+  const [carregandoDisc,  setCarregandoDisc]  = useState(false);
+  const [carregandoNotas, setCarregandoNotas] = useState(false);
+
+  // Ao montar a tela, carrega as disciplinas disponíveis para o professor logado
+  // (professor recebe só as suas; admin recebe todas - filtro feito no backend)
   useEffect(() => {
     async function carregarDisciplinas() {
       setCarregandoDisc(true);
@@ -57,6 +69,8 @@ export default function LancamentoNotasScreen() {
     carregarDisciplinas();
   }, []);
 
+  // Chamado quando o professor clica em uma disciplina:
+  // carrega a turma e inicializa o estado de edição com as notas já salvas
   const selecionarDisciplina = useCallback(async (disc: DisciplinaListagem) => {
     setDisciplinaSelecionada(disc);
     setNotas([]);
@@ -67,6 +81,8 @@ export default function LancamentoNotasScreen() {
       const resp = await notasService.listarPorDisciplina(disc.id);
       setNotas(resp.notas);
 
+      // Pré-preenche os inputs com as notas já existentes no banco
+      // nota null (não lançada) -> string vazia no input
       const estadoInicial: Record<number, EdicaoNotas> = {};
       for (const n of resp.notas) {
         estadoInicial[n.aluno_id] = {
@@ -82,6 +98,8 @@ export default function LancamentoNotasScreen() {
     }
   }, []);
 
+  // Valida e atualiza o valor digitado nos inputs de nota
+  // Regex: aceita até 2 dígitos inteiros e 1 decimal (ex: "10", "7.5", "9,8")
   const atualizarNota = (alunoId: number, campo: 'nota1' | 'nota2', valor: string) => {
     if (valor !== '' && !/^\d{0,2}([.,]\d?)?$/.test(valor)) return;
     setEdicao((prev) => ({
@@ -90,16 +108,19 @@ export default function LancamentoNotasScreen() {
     }));
   };
 
+  // Salva as notas de um aluno específico e recarrega a turma para refletir a média calculada
   const salvarAluno = async (nota: NotaTurma) => {
     if (!disciplinaSelecionada) return;
     const campos = edicao[nota.aluno_id];
     if (!campos) return;
 
+    // Normaliza vírgula para ponto antes de converter para float
     const nota1Str = campos.nota1.replace(',', '.');
     const nota2Str = campos.nota2.replace(',', '.');
     const nota1 = nota1Str !== '' ? parseFloat(nota1Str) : null;
     const nota2 = nota2Str !== '' ? parseFloat(nota2Str) : null;
 
+    // Validação local antes de chamar a API
     if (nota1 != null && (isNaN(nota1) || nota1 < 0 || nota1 > 10)) {
       Alert.alert('Nota inválida', `Nota 1 de ${nota.aluno} deve ser entre 0 e 10.`);
       return;
@@ -109,6 +130,7 @@ export default function LancamentoNotasScreen() {
       return;
     }
 
+    // Ativa o spinner só para o botão do aluno que está sendo salvo
     setSalvando((prev) => ({ ...prev, [nota.aluno_id]: true }));
     try {
       await notasService.lancar({
@@ -117,6 +139,7 @@ export default function LancamentoNotasScreen() {
         nota1,
         nota2,
       });
+      // Recarrega a turma para exibir a média e situação recalculadas pelo banco
       await selecionarDisciplina(disciplinaSelecionada);
     } catch (err: any) {
       Alert.alert('Erro ao salvar', err.message);
@@ -125,7 +148,7 @@ export default function LancamentoNotasScreen() {
     }
   };
 
-  // Seleção de disciplina
+  // Primeira visão: seleção de disciplina
   if (!disciplinaSelecionada) {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -157,15 +180,17 @@ export default function LancamentoNotasScreen() {
     );
   }
 
-  // Lançamento de notas
+  // Segunda visão: lançamento de notas da turma
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false}>
 
+        {/* Chip para voltar à seleção de disciplina */}
         <TouchableOpacity style={estilos.chipVoltar} onPress={() => setDisciplinaSelecionada(null)}>
           <Text style={estilos.chipVoltarTexto}>← Trocar disciplina</Text>
         </TouchableOpacity>
 
+        {/* Cabeçalho azul com nome e info da disciplina selecionada */}
         <View style={estilos.cabecalho}>
           <Text style={estilos.cabecalhoTitulo}>{disciplinaSelecionada.nome}</Text>
           <Text style={estilos.cabecalhoSub}>
@@ -182,20 +207,23 @@ export default function LancamentoNotasScreen() {
           <Text style={estilos.textoSecundario}>Nenhum aluno matriculado nesta disciplina.</Text>
         ) : (
           <>
+            {/* Cabeçalho das colunas da tabela */}
             <View style={estilos.tabelaCabecalho}>
               <Text style={[estilos.colAluno, estilos.thTexto]}>Aluno</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N1</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N2</Text>
               <Text style={[estilos.colMedia, estilos.thTexto]}>Méd.</Text>
-              <View style={estilos.colAcao} />
+              <View style={estilos.colAcao} /> {/* espaço reservado para o botão ✓ */}
             </View>
 
+            {/* Um cartão por aluno com inputs de N1, N2 e botão de salvar */}
             {notas.map((item) => {
               const campos     = edicao[item.aluno_id] ?? { nota1: '', nota2: '' };
               const isSalvando = salvando[item.aluno_id] ?? false;
 
               return (
                 <View key={item.aluno_id} style={estilos.cartaoAluno}>
+                  {/* Linha superior: nome, matrícula e badge de situação */}
                   <View style={estilos.linhaInfo}>
                     <View style={{ flex: 1 }}>
                       <Text style={estilos.alunoNome} numberOfLines={1}>{item.aluno}</Text>
@@ -204,6 +232,7 @@ export default function LancamentoNotasScreen() {
                     <BadgeSituacao situacao={item.situacao} />
                   </View>
 
+                  {/* Linha inferior: inputs de N1 e N2, média calculada e botão salvar */}
                   <View style={estilos.linhaNotas}>
                     <View style={estilos.grupoInput}>
                       <Text style={estilos.labelNota}>N1</Text>
@@ -231,6 +260,7 @@ export default function LancamentoNotasScreen() {
                       />
                     </View>
 
+                    {/* Média vem do banco (GENERATED ALWAYS); exibida somente após salvar */}
                     <View style={estilos.grupoMedia}>
                       <Text style={estilos.labelNota}>Méd.</Text>
                       <Text style={estilos.mediaTexto}>
@@ -238,6 +268,7 @@ export default function LancamentoNotasScreen() {
                       </Text>
                     </View>
 
+                    {/* Botão de confirmar: spinner individual enquanto salva este aluno */}
                     <TouchableOpacity
                       style={[estilos.botaoSalvar, isSalvando && estilos.botaoSalvarDisabled]}
                       onPress={() => salvarAluno(item)}

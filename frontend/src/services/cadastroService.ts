@@ -1,7 +1,9 @@
+// Centraliza todas as chamadas HTTP para alunos, professores e disciplinas
+
 import type { AxiosError } from 'axios';
 import { api } from './api';
 
-// Tipos de formulário (payload enviado ao backend)
+// Tipos de payload enviados ao backend nos formulários de cadastro
 
 export type DadosAluno = {
   nome: string; matricula: string; curso: string; email: string;
@@ -18,7 +20,7 @@ export type DadosDisciplina = {
   curso: string; semestre: string;
 };
 
-// Tipos de listagem (retorno da API)
+// Tipos de retorno da API nas listagens
 
 export type AlunoListagem = {
   id: number; nome: string; matricula: string; curso: string;
@@ -36,18 +38,17 @@ export type DisciplinaListagem = {
   curso: string; semestre: string;
 };
 
+// Formato da resposta paginada retornada pelo backend
 export type RespostaPaginada<T> = {
   dados: T[]; total: number; pagina: number; limite: number;
 };
 
-// Utilitário
-
+// Extrai a mensagem de erro do campo `erro` da resposta do backend
+// Se não houver, usa mensagem genérica
 function extrairMensagemErro(err: unknown): string {
   const error = err as AxiosError<{ erro: string }>;
   return error.response?.data?.erro ?? 'Erro ao salvar. Tente novamente.';
 }
-
-// Serviço
 
 export const cadastroService = {
 
@@ -67,6 +68,7 @@ export const cadastroService = {
     catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
+  // Busca um aluno específico pelo e-mail (usado pelo aluno ao abrir seu cadastro)
   buscarAlunoPorEmail: async (email: string): Promise<(AlunoListagem & DadosAluno) | null> => {
     try {
       const { data } = await api.get<(AlunoListagem & DadosAluno) | null>('/api/alunos', { params: { email } });
@@ -74,6 +76,7 @@ export const cadastroService = {
     } catch { return null; }
   },
 
+  // Lista todos os alunos com limite alto para exibir tudo de uma vez na tela
   listarAlunos: async (pagina = 1, limite = 200): Promise<AlunoListagem[]> => {
     try {
       const { data } = await api.get<RespostaPaginada<AlunoListagem>>('/api/alunos', { params: { pagina, limite } });
@@ -97,6 +100,7 @@ export const cadastroService = {
     catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
+  // Busca professor pelo e-mail (usado pelo professor ao abrir seu cadastro)
   buscarProfessorPorEmail: async (email: string): Promise<ProfessorListagem | null> => {
     try {
       const { data } = await api.get<ProfessorListagem | null>('/api/professores', { params: { email } });

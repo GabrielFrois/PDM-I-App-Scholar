@@ -1,10 +1,13 @@
+-- Define a estrutura completa do banco de dados
+-- O CASCADE garante que tabelas dependentes sejam removidas na ordem certa
 DROP TABLE IF EXISTS notas       CASCADE;
 DROP TABLE IF EXISTS disciplinas CASCADE;
 DROP TABLE IF EXISTS alunos      CASCADE;
 DROP TABLE IF EXISTS professores CASCADE;
 DROP TABLE IF EXISTS usuarios    CASCADE;
 
--- Tabela usuarios
+-- Tabela de autenticação: guarda e-mail, senha criptografada e perfil de acesso
+-- perfil pode ser 'aluno', 'professor' ou 'admin'
 CREATE TABLE usuarios (
   id         SERIAL       PRIMARY KEY,
   email      VARCHAR(150) NOT NULL UNIQUE,
@@ -14,7 +17,8 @@ CREATE TABLE usuarios (
   criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
--- Tabela alunos
+-- Tabela de alunos com todos os dados pessoais e de endereço
+-- deleted_at: soft delete (ao invés de excluir, marca a data de remoção)
 CREATE TABLE alunos (
   id         SERIAL       PRIMARY KEY,
   nome       VARCHAR(150) NOT NULL,
@@ -30,7 +34,8 @@ CREATE TABLE alunos (
   criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
--- Tabela professores
+-- Tabela de professores com dados acadêmicos
+-- deleted_at: soft delete
 CREATE TABLE professores (
   id             SERIAL       PRIMARY KEY,
   nome           VARCHAR(150) NOT NULL,
@@ -42,7 +47,9 @@ CREATE TABLE professores (
   criado_em      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
--- Tabela disciplinas
+-- Tabela de disciplinas vinculada ao professor responsável
+-- professor_id: ON DELETE SET NULL - se o professor for removido, a disciplina fica sem professor
+-- deleted_at: soft delete
 CREATE TABLE disciplinas (
   id            SERIAL       PRIMARY KEY,
   nome          VARCHAR(150) NOT NULL,
@@ -54,7 +61,11 @@ CREATE TABLE disciplinas (
   criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
--- Tabela notas
+-- Tabela de notas: uma linha por combinação aluno+disciplina
+-- media e situacao são colunas geradas automaticamente pelo banco 
+-- media = média aritmética simples de nota1 e nota2
+-- situacao = Aprovado (>=6), Exame (>=5), Reprovado (<5)
+-- ON DELETE CASCADE: se o aluno ou disciplina for removido, as notas também somem
 CREATE TABLE notas (
   id            SERIAL         PRIMARY KEY,
   aluno_id      INTEGER        NOT NULL REFERENCES alunos(id)      ON DELETE CASCADE,
@@ -70,10 +81,11 @@ CREATE TABLE notas (
                   END
                 ) STORED,
   criado_em     TIMESTAMP      NOT NULL DEFAULT NOW(),
+  -- Impede lançar duas notas para o mesmo aluno na mesma disciplina
   UNIQUE (aluno_id, disciplina_id)
 );
 
--- Índices de performance
+-- Índices de performance: aceleram buscas frequentes por matrícula, e-mail etc.
 CREATE INDEX idx_alunos_matricula       ON alunos(matricula);
 CREATE INDEX idx_alunos_email           ON alunos(email);
 CREATE INDEX idx_professores_email      ON professores(email);
@@ -81,7 +93,7 @@ CREATE INDEX idx_notas_aluno            ON notas(aluno_id);
 CREATE INDEX idx_disciplinas_curso      ON disciplinas(curso);
 CREATE INDEX idx_disciplinas_prof       ON disciplinas(professor_id);
 
--- Índices de soft delete
+-- Índices parciais para soft delete: só indexam registros ativos (deleted_at IS NULL)
 CREATE INDEX idx_alunos_deleted         ON alunos(deleted_at)       WHERE deleted_at IS NULL;
 CREATE INDEX idx_professores_deleted    ON professores(deleted_at)  WHERE deleted_at IS NULL;
 CREATE INDEX idx_disciplinas_deleted    ON disciplinas(deleted_at)  WHERE deleted_at IS NULL;

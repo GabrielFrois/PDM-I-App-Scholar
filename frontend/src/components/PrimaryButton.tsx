@@ -1,3 +1,6 @@
+// Botão reutilizável com variante preenchida (primary) ou contornada (outline)
+// Exibe um spinner enquanto loading=true e desabilita o toque
+
 import React from 'react';
 import {
     ActivityIndicator,
@@ -9,9 +12,9 @@ import {
 import { theme } from '../styles/theme';
 
 type Props = TouchableOpacityProps & {
-  title: string;
-  loading?: boolean;
-  variant?: 'primary' | 'outline';
+  title:    string;
+  loading?: boolean;              // exibe spinner e bloqueia o botão
+  variant?: 'primary' | 'outline'; // primary = fundo azul, outline = borda azul sem preenchimento
 };
 
 export default function PrimaryButton({
@@ -26,10 +29,11 @@ export default function PrimaryButton({
     <TouchableOpacity
       style={[styles.button, isPrimary ? styles.primary : styles.outline]}
       activeOpacity={0.8}
-      disabled={loading}
+      disabled={loading} // impede clique duplo durante requisição
       {...rest}
     >
       {loading ? (
+        // Spinner substituindo o texto durante loading
         <ActivityIndicator color={isPrimary ? theme.colors.white : theme.colors.primary} />
       ) : (
         <Text style={[styles.text, isPrimary ? styles.textPrimary : styles.textOutline]}>

@@ -1,3 +1,7 @@
+// Tela com duas visões:
+// - Admin: lista de alunos com botões Editar/Remover + formulário de cadastro/edição
+// - Aluno: abre direto no formulário com seus dados carregados e campos sensíveis bloqueados
+
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
@@ -16,11 +20,13 @@ import { theme } from '../styles/theme';
 
 type Aba = 'lista' | 'formulario';
 
+// Estado inicial vazio do formulário (usado no reset e na criação de novo aluno)
 const VAZIO: DadosAluno = {
   nome: '', matricula: '', curso: '', email: '',
   telefone: '', cep: '', endereco: '', cidade: '', estado: '',
 };
 
+// Campos que o aluno não pode editar (dados institucionais)
 const BLOQUEADOS_ALUNO = ['nome', 'matricula', 'curso', 'email'];
 
 export default function CadastroAlunoScreen() {
@@ -28,15 +34,17 @@ export default function CadastroAlunoScreen() {
   const navegacao = useNavigation();
   const ehAluno   = user?.perfil === 'aluno';
 
+  // Aluno começa no formulário; admin começa na lista
   const [aba, setAba]                 = useState<Aba>(ehAluno ? 'formulario' : 'lista');
   const [alunoId, setAlunoId]         = useState<number | null>(null);
   const [loading, setLoading]         = useState(false);
-  const [carregando, setCarregando]   = useState(ehAluno);
+  const [carregando, setCarregando]   = useState(ehAluno); // true enquanto busca dados do aluno logado
   const [buscandoCep, setBuscandoCep] = useState(false);
 
   const [alunos,          setAlunos]          = useState<AlunoListagem[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(false);
 
+  // useFormulario gerencia estado dos campos + regras de validação inline
   const { formulario, erros, atualizarCampo, validar, resetar, preencherFormulario } =
     useFormulario(VAZIO, {
       nome:      (v) => !v.trim() ? 'Nome é obrigatório.' : '',
@@ -58,22 +66,25 @@ export default function CadastroAlunoScreen() {
       estado:   (v) => !v.trim() ? 'Estado é obrigatório.' : '',
     });
 
+  // useIBGE fornece estados e municípios, recebe a sigla do estado selecionado para carregar as cidades
   const { estados, cidades, carregandoEstados, carregandoCidades } = useIBGE(
     formulario.estado || null,
   );
   const opcoesEstados: OpcaoSelect[] = estados.map((e) => ({ label: `${e.sigla} — ${e.nome}`, value: e.sigla }));
   const opcoesCidades: OpcaoSelect[] = cidades.map((c) => ({ label: c.nome, value: c.nome }));
 
+  // Retorna true se o campo deve ser bloqueado para edição pelo aluno
   const bloqueado = (campo: string) => ehAluno && BLOQUEADOS_ALUNO.includes(campo);
 
-  // Declarado antes do useLayoutEffect para evitar closure stale
+  // useCallback evita recriar a função a cada render (necessário por ser usada no useLayoutEffect)
   const voltarParaLista = useCallback(() => {
     setAlunoId(null);
     resetar();
     setAba('lista');
   }, [resetar]);
 
-  // Substitui o botão Voltar nativo quando está no formulário de edição
+  // Substitui o botão "Voltar" nativo do header por um botão "‹ Lista" customizado
+  // Só ativo quando o admin está no formulário (evita o back nativo que não reseta o estado)
   useLayoutEffect(() => {
     if (ehAluno) return;
     navegacao.setOptions({
@@ -87,6 +98,7 @@ export default function CadastroAlunoScreen() {
     });
   }, [aba, navegacao, voltarParaLista]);
 
+  // Aluno: ao montar, busca seus próprios dados pelo e-mail do token e preenche o formulário
   useEffect(() => {
     if (!ehAluno || !user?.email) return;
     (async () => {
@@ -111,6 +123,7 @@ export default function CadastroAlunoScreen() {
     })();
   }, []);
 
+  // Admin: carrega a lista de alunos
   const carregarLista = useCallback(async () => {
     setCarregandoLista(true);
     try { setAlunos(await cadastroService.listarAlunos()); }
@@ -120,6 +133,7 @@ export default function CadastroAlunoScreen() {
 
   useEffect(() => { if (!ehAluno) carregarLista(); }, []);
 
+  // Admin clica em "Editar": preenche o formulário com os dados do aluno selecionado
   const abrirEdicao = (aluno: AlunoListagem) => {
     setAlunoId(aluno.id);
     preencherFormulario({
@@ -136,6 +150,7 @@ export default function CadastroAlunoScreen() {
     setAba('formulario');
   };
 
+  // Exibe Alert de confirmação antes de remover (soft delete)
   const confirmarRemocao = (aluno: AlunoListagem) => {
     Alert.alert('Remover aluno', `Deseja remover ${aluno.nome}?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -146,6 +161,8 @@ export default function CadastroAlunoScreen() {
     ]);
   };
 
+  // Chamada quando o campo CEP perde o foco: busca endereço na API ViaCEP
+  // e preenche automaticamente os campos de endereço, estado e cidade
   const buscarCep = async (cep: string) => {
     const limpo = cep.replace(/\D/g, '');
     if (limpo.length !== 8) return;
@@ -161,6 +178,7 @@ export default function CadastroAlunoScreen() {
     finally { setBuscandoCep(false); }
   };
 
+  // Valida o formulário e chama criar ou atualizar conforme alunoId
   const handleSalvar = async () => {
     if (!validar()) return;
     setLoading(true);
@@ -180,6 +198,7 @@ export default function CadastroAlunoScreen() {
     } finally { setLoading(false); }
   };
 
+  // Spinner enquanto carrega os dados do aluno logado
   if (carregando) {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -191,7 +210,7 @@ export default function CadastroAlunoScreen() {
     );
   }
 
-  // Lista
+  // Visão de lista (admin)
   if (aba === 'lista') {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -238,13 +257,14 @@ export default function CadastroAlunoScreen() {
     );
   }
 
-  // Formulário
+  // Visão de formulário (admin e aluno)
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
         keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets={true}>
 
+        {/* Aviso de edição (visível para admin quando há um aluno carregado) */}
         {!ehAluno && alunoId && (
           <View style={[estilos.aviso, { backgroundColor: '#FEF3E2' }]}>
             <Text style={[estilos.avisoTexto, { color: theme.colors.warning }]}>Editando aluno existente</Text>
@@ -277,6 +297,7 @@ export default function CadastroAlunoScreen() {
         <View style={estilos.divisor} />
         <Text style={estilos.secaoTitulo}>Endereço</Text>
 
+        {/* onBlur: dispara busca no ViaCEP quando o campo perde foco */}
         <InputField label="CEP *" placeholder="12345678"
           value={formulario.cep} onChangeText={(v) => atualizarCampo('cep', v)}
           onBlur={() => buscarCep(formulario.cep)}
@@ -288,12 +309,14 @@ export default function CadastroAlunoScreen() {
           value={formulario.endereco} onChangeText={(v) => atualizarCampo('endereco', v)}
           error={erros.endereco} />
 
+        {/* Ao trocar o estado, limpa a cidade para forçar nova seleção */}
         <SelectField label="Estado *"
           placeholder={carregandoEstados ? 'Carregando estados...' : 'Selecione o estado'}
           opcoes={opcoesEstados} valor={formulario.estado}
           onChange={(v) => { atualizarCampo('estado', v); atualizarCampo('cidade', ''); }}
           disabled={carregandoEstados} error={erros.estado} />
 
+        {/* Cidade desabilitada até que um estado seja selecionado */}
         <SelectField label="Cidade *"
           placeholder={!formulario.estado ? 'Selecione o estado primeiro' : carregandoCidades ? 'Carregando cidades...' : 'Selecione a cidade'}
           opcoes={opcoesCidades} valor={formulario.cidade}

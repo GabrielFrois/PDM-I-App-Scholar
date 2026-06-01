@@ -1,3 +1,5 @@
+// Select customizado: exibe a opção selecionada e abre um bottom sheet modal com a lista
+
 import React, { useState } from 'react';
 import {
   FlatList,
@@ -10,19 +12,19 @@ import {
 import { theme } from '../styles/theme';
 
 export type OpcaoSelect = {
-  label: string;
-  value: string;
+  label: string; // texto exibido
+  value: string; // valor enviado ao formulário
 };
 
 type Props = {
-  label: string;
+  label:        string;
   placeholder?: string;
-  opcoes: OpcaoSelect[];
-  valor: string;
-  onChange: (valor: string) => void;
-  error?: string;
-  disabled?: boolean;
-  hint?: string;
+  opcoes:       OpcaoSelect[];
+  valor:        string;
+  onChange:     (valor: string) => void;
+  error?:       string;
+  disabled?:    boolean;
+  hint?:        string;
 };
 
 export default function SelectField({
@@ -35,8 +37,10 @@ export default function SelectField({
   disabled = false,
   hint,
 }: Props) {
+  // Controla se o modal (bottom sheet) está aberto
   const [aberto, setAberto] = useState(false);
 
+  // Encontra o objeto da opção atualmente selecionada para exibir o label
   const opcaoSelecionada = opcoes.find((o) => o.value === valor);
 
   return (
@@ -45,10 +49,11 @@ export default function SelectField({
 
       {hint ? <Text style={estilos.hint}>{hint}</Text> : null}
 
+      {/* Botão que mostra a opção selecionada e abre o modal ao toque */}
       <TouchableOpacity
         style={[
           estilos.selector,
-          error ? estilos.selectorErro : null,
+          error    ? estilos.selectorErro     : null,
           disabled ? estilos.selectorDisabled : null,
         ]}
         onPress={() => !disabled && setAberto(true)}
@@ -57,7 +62,7 @@ export default function SelectField({
         <Text
           style={[
             estilos.selectorTexto,
-            !opcaoSelecionada ? estilos.placeholder : null,
+            !opcaoSelecionada ? estilos.placeholder : null, // placeholder em cinza se nada selecionado
           ]}
           numberOfLines={1}
         >
@@ -68,7 +73,9 @@ export default function SelectField({
 
       {error ? <Text style={estilos.textoErro}>{error}</Text> : null}
 
+      {/* Modal bottom sheet com a lista de opções */}
       <Modal visible={aberto} transparent animationType="slide" onRequestClose={() => setAberto(false)}>
+        {/* Overlay semi-transparente: toque fora fecha o modal */}
         <TouchableOpacity style={estilos.overlay} onPress={() => setAberto(false)} activeOpacity={1}>
           <View style={estilos.sheet}>
             <View style={estilos.sheetHeader}>
@@ -78,6 +85,7 @@ export default function SelectField({
               </TouchableOpacity>
             </View>
 
+            {/* Lista rolável de opções */}
             <FlatList
               data={opcoes}
               keyExtractor={(item) => item.value}
@@ -86,11 +94,11 @@ export default function SelectField({
                 <TouchableOpacity
                   style={[
                     estilos.opcao,
-                    item.value === valor ? estilos.opcaoSelecionada : null,
+                    item.value === valor ? estilos.opcaoSelecionada : null, // destaca a selecionada
                   ]}
                   onPress={() => {
                     onChange(item.value);
-                    setAberto(false);
+                    setAberto(false); // fecha o modal após a seleção
                   }}
                 >
                   <Text
@@ -101,6 +109,7 @@ export default function SelectField({
                   >
                     {item.label}
                   </Text>
+                  {/* Ícone de check na opção atualmente selecionada */}
                   {item.value === valor && <Text style={estilos.check}>✓</Text>}
                 </TouchableOpacity>
               )}

@@ -1,6 +1,10 @@
+// Camada de acesso ao banco para a tabela notas
+
 const pool = require('../database/db');
 
 const Nota = {
+  // Retorna todas as notas de uma disciplina com os dados dos alunos
+  // Usado pelo professor para ver a turma completa
   async listarPorDisciplina(disciplinaId) {
     const result = await pool.query(
       `SELECT
@@ -21,6 +25,8 @@ const Nota = {
     return result.rows;
   },
 
+  // Retorna todas as notas de um aluno com o nome de cada disciplina
+  // Usado no boletim
   async listarPorAluno(alunoId) {
     const result = await pool.query(
       `SELECT
@@ -39,6 +45,9 @@ const Nota = {
     return result.rows;
   },
 
+  // Insere uma nota ou atualiza se já existir (INSERT ... ON CONFLICT DO UPDATE)
+  // COALESCE mantém o valor antigo se o novo for null (permite atualizar só nota1 ou só nota2)
+  // media e situacao são calculadas automaticamente pelo banco (GENERATED ALWAYS)
   async lancarOuAtualizar({ alunoId, disciplinaId, nota1, nota2 }) {
     const result = await pool.query(
       `INSERT INTO notas (aluno_id, disciplina_id, nota1, nota2)

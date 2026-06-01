@@ -1,3 +1,5 @@
+// Povoa o banco com dados de exemplo para testes
+
 require('dotenv').config();
 
 const { Client } = require('pg');
@@ -11,13 +13,15 @@ const client = new Client({
   password: process.env.DB_PASSWORD || '123456',
 });
 
-//  regex /\s+/g para substituir os espaços
+// Converte um nome completo para e-mail institucional
+// Ex: "Ana Clara" -> "ana.clara@fatec.sp.gov.br"
+// normalize('NFD') + replace remove acentos (ã -> a, é -> e etc.)
 function nomeParaEmail(nome) {
   return nome
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/\s+/g, '.')            // todos os espaços → ponto
+    .replace(/\s+/g, '.')            // todos os espaços viram pontos
     + '@fatec.sp.gov.br';
 }
 
@@ -26,8 +30,10 @@ async function seed() {
     await client.connect();
     console.log('[seed] Conectado ao PostgreSQL.');
 
+    // Usa transação para garantir que tudo é inserido ou nada
     await client.query('BEGIN');
 
+    // Limpa dados anteriores na ordem correta (respeitando as FKs)
     await client.query('DELETE FROM notas');
     await client.query('DELETE FROM disciplinas');
     await client.query('DELETE FROM alunos');
@@ -35,6 +41,8 @@ async function seed() {
     await client.query('DELETE FROM usuarios');
     console.log('[seed] Dados antigos removidos.');
 
+    // Gera um único hash de senha para todos (senha padrão: 123456)
+    // O "10" é o custo do bcrypt (número de rounds de hashing)
     const senhaHash = await bcrypt.hash('123456', 10);
 
     const professoresData = [
@@ -52,11 +60,12 @@ async function seed() {
       'Quintino Castro', 'Rafaela Melo', 'Samuel Nogueira', 'Tatiana Mendes', 'Vinicius Moraes',
     ];
 
+    // Gera os dados de cada aluno: matrícula sequencial 2026001, 2026002 etc.
     const alunosData = nomesAlunos.map((nome, index) => ({
       nome,
       matricula: `2026${String(index + 1).padStart(3, '0')}`,
       curso: 'Desenvolvimento de Software Multiplataforma',
-      email: nomeParaEmail(nome),   // CORRIGIDO: usa função que remove acentos e substitui todos os espaços
+      email: nomeParaEmail(nome),
       telefone: `(12) 99999-${String(index + 1).padStart(4, '0')}`,
       cep: '12245-000',
       endereco: `Rua Voluntarios da Patria, ${100 + index}`,
@@ -64,6 +73,7 @@ async function seed() {
       estado: 'SP',
     }));
 
+    // Cria um usuário de login para: 1 admin + todos os professores + todos os alunos
     const usuarios = [
       { email: 'admin@fatec.sp.gov.br', senha_hash: senhaHash, perfil: 'admin' },
       ...professoresData.map(p => ({ email: p.email, senha_hash: senhaHash, perfil: 'professor' })),
@@ -78,6 +88,7 @@ async function seed() {
     }
     console.log(`[seed] ${usuarios.length} usuarios inseridos.`);
 
+    // Insere professores e guarda o id gerado pelo banco para usar nas disciplinas
     const professorIds = {};
     for (const p of professoresData) {
       const res = await client.query(
@@ -88,6 +99,7 @@ async function seed() {
     }
     console.log(`[seed] ${professoresData.length} professores inseridos.`);
 
+    // Define as disciplinas e associa cada uma a um professor pelo nome
     const disciplinas = [
       { nome: 'Programacao para Dispositivos Moveis I', carga_horaria: 80, professor: professoresData[0].nome, curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
       { nome: 'Banco de Dados Relacional',              carga_horaria: 80, professor: professoresData[1].nome, curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
@@ -96,6 +108,7 @@ async function seed() {
       { nome: 'Estatistica Aplicada',                   carga_horaria: 60, professor: professoresData[4].nome, curso: 'Desenvolvimento de Software Multiplataforma', semestre: '4 Semestre' },
     ];
 
+    // Insere as disciplinas e guarda os ids para usar no lançamento de notas
     const disciplinaIds = {};
     for (const d of disciplinas) {
       const res = await client.query(
@@ -106,6 +119,7 @@ async function seed() {
     }
     console.log(`[seed] ${disciplinas.length} disciplinas inseridas.`);
 
+    // Insere os alunos e coleta os ids gerados
     const alunoIds = [];
     for (const a of alunosData) {
       const res = await client.query(
@@ -117,6 +131,8 @@ async function seed() {
     }
     console.log(`[seed] ${alunoIds.length} alunos inseridos.`);
 
+    // Para cada aluno, gera notas aleatórias entre 5.0 e 10.0 em todas as disciplinas
+    // Math.random() * 5 + 5 -> número entre 5 e 10
     let notasInseridas = 0;
     for (const alunoId of alunoIds) {
       for (const d of disciplinas) {
@@ -131,6 +147,7 @@ async function seed() {
     }
     console.log(`[seed] ${notasInseridas} notas inseridas.`);
 
+    // Confirma todas as inserções de uma vez
     await client.query('COMMIT');
     console.log('[seed] Concluido com sucesso!');
     console.log('---');
@@ -145,6 +162,7 @@ async function seed() {
     alunosData.forEach(a => console.log(`[seed]   ${a.nome.padEnd(20)} -> ${a.email}`));
 
   } catch (err) {
+    // Se qualquer inserção falhar, desfaz tudo para não deixar o banco pela metade
     await client.query('ROLLBACK');
     console.error('[seed] Erro durante a execucao:', err.message);
     process.exit(1);

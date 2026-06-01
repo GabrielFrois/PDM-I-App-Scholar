@@ -1,3 +1,7 @@
+// Mesma lógica da CadastroAlunoScreen, adaptada para professores
+// Admin: lista + formulário de criação/edição
+// Professor: abre direto no formulário com seus dados; nome e e-mail bloqueados
+
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
@@ -18,6 +22,7 @@ const VAZIO: DadosProfessor = {
   nome: '', titulacao: '', areaAtuacao: '', tempoDocencia: '', email: '',
 };
 
+// Campos que o professor não pode editar (vinculados ao login institucional)
 const BLOQUEADOS_PROFESSOR = ['nome', 'email'];
 
 export default function CadastroProfessorScreen() {
@@ -48,14 +53,13 @@ export default function CadastroProfessorScreen() {
 
   const bloqueado = (campo: string) => ehProfessor && BLOQUEADOS_PROFESSOR.includes(campo);
 
-  // Declarado antes do useLayoutEffect para evitar closure stale
   const voltarParaLista = useCallback(() => {
     setProfessorId(null);
     resetar();
     setAba('lista');
   }, [resetar]);
 
-  // Substitui o botão Voltar nativo quando está no formulário de edição
+  // Personaliza o botão de voltar do header quando admin está no formulário
   useLayoutEffect(() => {
     if (ehProfessor) return;
     navegacao.setOptions({
@@ -69,6 +73,7 @@ export default function CadastroProfessorScreen() {
     });
   }, [aba, navegacao, voltarParaLista]);
 
+  // Professor: ao montar, busca seus dados pelo e-mail do token
   useEffect(() => {
     if (!ehProfessor || !user?.email) return;
     (async () => {
@@ -150,7 +155,7 @@ export default function CadastroProfessorScreen() {
     );
   }
 
-  // Lista
+  // Visão de lista (admin)
   if (aba === 'lista') {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -195,7 +200,7 @@ export default function CadastroProfessorScreen() {
     );
   }
 
-  // Formulário
+  // Visão de formulário
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}

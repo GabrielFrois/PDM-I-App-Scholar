@@ -1,6 +1,9 @@
+// Camada de acesso ao banco para a tabela professores
+
 const pool = require('../database/db');
 
 const Professor = {
+  // Insere um novo professor; parseInt converte tempoDocencia de string para número
   async criar({ nome, titulacao, areaAtuacao, tempoDocencia, email }) {
     const result = await pool.query(
       `INSERT INTO professores (nome, titulacao, area, tempo_docencia, email)
@@ -11,6 +14,7 @@ const Professor = {
     return result.rows[0];
   },
 
+  // Busca professor por e-mail, ignorando deletados
   async buscarPorEmail(email) {
     const result = await pool.query(
       `SELECT id, nome, titulacao, area, tempo_docencia, email
@@ -20,6 +24,7 @@ const Professor = {
     return result.rows[0] ?? null;
   },
 
+  // Busca professor por id, ignorando deletados
   async buscarPorId(id) {
     const result = await pool.query(
       'SELECT * FROM professores WHERE id = $1 AND deleted_at IS NULL',
@@ -28,6 +33,7 @@ const Professor = {
     return result.rows[0] ?? null;
   },
 
+  // Lista professores ativos com paginação (dados + total em paralelo)
   async listar({ pagina = 1, limite = 20 } = {}) {
     const offset = (pagina - 1) * limite;
     const [data, count] = await Promise.all([
@@ -42,6 +48,7 @@ const Professor = {
     return { dados: data.rows, total: parseInt(count.rows[0].count), pagina, limite };
   },
 
+  // Atualiza todos os campos do professor
   async atualizar(id, { nome, titulacao, areaAtuacao, tempoDocencia, email }) {
     const result = await pool.query(
       `UPDATE professores
@@ -53,6 +60,7 @@ const Professor = {
     return result.rows[0];
   },
 
+  // Soft delete: marca deleted_at, não apaga o registro
   async remover(id) {
     const result = await pool.query(
       `UPDATE professores SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL

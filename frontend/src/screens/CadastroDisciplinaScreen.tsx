@@ -1,3 +1,6 @@
+// Tela exclusiva de admin: lista de disciplinas + formulário de criação/edição
+// Professor responsável é selecionado via SelectField (lista vinda da API)
+
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
@@ -18,6 +21,7 @@ import { theme } from '../styles/theme';
 
 type Aba = 'lista' | 'formulario';
 
+// Tipo do formulário da disciplina (todos string para compatibilidade com useFormulario)
 type FormDisciplina = {
   nomeDisciplina: string; cargaHoraria: string;
   professorId: string; curso: string; semestre: string;
@@ -45,22 +49,23 @@ export default function CadastroDisciplinaScreen() {
       cargaHoraria:   (v) => !v.trim() ? 'Carga horária é obrigatória.'      : '',
       curso:          (v) => !v.trim() ? 'Curso é obrigatório.'               : '',
       semestre:       (v) => !v.trim() ? 'Semestre é obrigatório.'            : '',
-      professorId:    () => '',
+      professorId:    () => '', // professor é opcional; sem regra de obrigatoriedade
     });
 
+  // Monta as opções do SelectField: inclui "Sem professor" como primeira opção
   const opcoesProfessores: OpcaoSelect[] = [
     { label: 'Sem professor responsável', value: '' },
     ...professores.map((p) => ({ label: `${p.nome} (${p.titulacao})`, value: String(p.id) })),
   ];
 
-  // Declarado antes do useLayoutEffect para evitar closure stale
+  // useCallback evita closure stale no useLayoutEffect
   const voltarParaLista = useCallback(() => {
     setDisciplinaId(null);
     resetar();
     setAba('lista');
   }, [resetar]);
 
-  // Substitui o botão Voltar nativo quando está no formulário de edição
+  // Personaliza botão de voltar no header quando está no formulário
   useLayoutEffect(() => {
     navegacao.setOptions({
       headerLeft: aba === 'formulario'
@@ -87,13 +92,16 @@ export default function CadastroDisciplinaScreen() {
     finally { setCarregandoProfs(false); }
   }, []);
 
+  // Carrega disciplinas e professores em paralelo ao montar a tela
   useEffect(() => { carregarLista(); carregarProfessores(); }, []);
 
+  // Preenche o formulário com os dados da disciplina clicada e troca para a aba de edição
   const abrirEdicao = (disc: DisciplinaListagem) => {
     setDisciplinaId(disc.id);
     preencherFormulario({
       nomeDisciplina: disc.nome                                              ?? '',
       cargaHoraria:   String(disc.carga_horaria                             ?? ''),
+      // professor_id pode ser null (disciplina sem professor), converte para string vazia nesse caso
       professorId:    disc.professor_id != null ? String(disc.professor_id) : '',
       curso:          disc.curso                                             ?? '',
       semestre:       disc.semestre                                          ?? '',
@@ -118,7 +126,7 @@ export default function CadastroDisciplinaScreen() {
       const payload = {
         nomeDisciplina: formulario.nomeDisciplina,
         cargaHoraria:   formulario.cargaHoraria,
-        professorId:    formulario.professorId,
+        professorId:    formulario.professorId, // string vazia -> backend interpreta como null
         curso:          formulario.curso,
         semestre:       formulario.semestre,
       };
@@ -139,7 +147,7 @@ export default function CadastroDisciplinaScreen() {
     } finally { setLoading(false); }
   };
 
-  // Lista
+  // Visão de lista
   if (aba === 'lista') {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -165,6 +173,7 @@ export default function CadastroDisciplinaScreen() {
                     <Text style={estilos.cardNome} numberOfLines={2}>{disc.nome}</Text>
                     <Text style={estilos.cardSub}>{disc.carga_horaria}h · {disc.semestre}</Text>
                     <Text style={estilos.cardSub} numberOfLines={1}>{disc.curso}</Text>
+                    {/* Nome do professor vem do JOIN feito na query do backend */}
                     {disc.professor && (
                       <Text style={estilos.cardSub} numberOfLines={1}>Prof. {disc.professor}</Text>
                     )}
@@ -186,7 +195,7 @@ export default function CadastroDisciplinaScreen() {
     );
   }
 
-  // Formulário
+  // Visão de formulário
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
@@ -209,6 +218,7 @@ export default function CadastroDisciplinaScreen() {
           value={formulario.cargaHoraria} onChangeText={(v) => atualizarCampo('cargaHoraria', v)}
           keyboardType="numeric" error={erros.cargaHoraria} />
 
+        {/* SelectField desabilitado enquanto os professores não terminam de carregar */}
         <SelectField label="Professor responsável"
           placeholder={carregandoProfs ? 'Carregando professores...' : 'Selecione um professor'}
           opcoes={opcoesProfessores} valor={formulario.professorId}

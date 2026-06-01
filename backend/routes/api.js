@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 
+// Middlewares de autenticação e autorização por perfil
 const { autenticar }      = require('../middlewares/auth');
 const { autorizar }       = require('../middlewares/autorizar');
 
@@ -11,32 +12,43 @@ const disciplinasController = require('../controllers/disciplinasController');
 const boletimController     = require('../controllers/boletimController');
 const notasController       = require('../controllers/notasController');
 
-// Autenticação
+// Rota pública: faz login e devolve o token JWT
 router.post('/login', authController.login);
 
-// Alunos
+// Rotas de alunos
+// Cadastrar: só admin pode criar aluno
+// Listar: admin, professor e aluno podem consultar
+// Atualizar: admin ou o próprio aluno (controle feito no controller)
+// Remover: só admin (soft delete)
 router.post('/alunos',       autenticar, autorizar('admin'),                       alunosController.cadastrar);
 router.get('/alunos',        autenticar, autorizar('admin', 'professor', 'aluno'), alunosController.listar);
 router.put('/alunos/:id',    autenticar, autorizar('admin', 'aluno'),              alunosController.atualizar);
 router.delete('/alunos/:id', autenticar, autorizar('admin'),                       alunosController.remover);
 
-// Professores
+// Rotas de professores
+// Cadastrar/remover: só admin
+// Listar: admin e professor
+// Atualizar: admin ou o próprio professor (controle feito no controller)
 router.post('/professores',       autenticar, autorizar('admin'),              professoresController.cadastrar);
 router.get('/professores',        autenticar, autorizar('admin', 'professor'), professoresController.listar);
 router.put('/professores/:id',    autenticar, autorizar('admin', 'professor'), professoresController.atualizar);
 router.delete('/professores/:id', autenticar, autorizar('admin'),              professoresController.remover);
 
-// Disciplinas
-router.post('/disciplinas',       autenticar, autorizar('admin'), disciplinasController.cadastrar);
+// Rotas de disciplinas
+// Cadastrar/atualizar/remover: só admin
+// Listar: admin vê todas; professor vê apenas as suas (filtro no controller)
+router.post('/disciplinas',       autenticar, autorizar('admin'),              disciplinasController.cadastrar);
 router.get('/disciplinas',        autenticar, autorizar('admin', 'professor'), disciplinasController.listar);
-router.put('/disciplinas/:id',    autenticar, autorizar('admin'), disciplinasController.atualizar);
-router.delete('/disciplinas/:id', autenticar, autorizar('admin'), disciplinasController.remover);
+router.put('/disciplinas/:id',    autenticar, autorizar('admin'),              disciplinasController.atualizar);
+router.delete('/disciplinas/:id', autenticar, autorizar('admin'),              disciplinasController.remover);
 
-// Notas
+// Rotas de notas
+// Listar notas por disciplina: admin e professor (professor só vê as suas)
+// Lançar/atualizar nota: admin e professor (professor só lança nas suas disciplinas)
 router.get('/notas/disciplina/:disciplinaId', autenticar, autorizar('admin', 'professor'), notasController.listarPorDisciplina);
 router.put('/notas',                          autenticar, autorizar('admin', 'professor'), notasController.lancarOuAtualizar);
 
-// Boletim
+// Rota do boletim: qualquer perfil pode acessar, mas aluno só vê o próprio (controle no controller)
 router.get('/boletim/:matricula', autenticar, autorizar('admin', 'professor', 'aluno'), boletimController.buscarPorMatricula);
 
 module.exports = router;

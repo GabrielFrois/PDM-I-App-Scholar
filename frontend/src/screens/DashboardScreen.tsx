@@ -1,3 +1,5 @@
+// Tela inicial após o login: exibe os cards de navegação de acordo com o perfil do usuário
+
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +18,7 @@ import { theme } from '../styles/theme';
 
 type Navegacao = NativeStackNavigationProp<RootStackParamList, 'Painel'>;
 
+// Estrutura de um item do menu de navegação
 type ItemMenu = {
   titulo:      string;
   icone:       React.ComponentProps<typeof Ionicons>['name'];
@@ -25,6 +28,10 @@ type ItemMenu = {
   corDestaque: string;
 };
 
+// Define os menus exibidos para cada perfil
+// admin: acesso a todos os cadastros e boletim
+// professor: lançamento de notas e seu próprio cadastro
+// aluno: seu boletim e seu cadastro
 const MENUS: Record<Perfil, ItemMenu[]> = {
   admin: [
     {
@@ -99,11 +106,11 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
 };
 
 export default function DashboardScreen() {
-  const navegacao  = useNavigation<Navegacao>();
-  const { user, logout } = useAuth();
+  const navegacao          = useNavigation<Navegacao>();
+  const { user, logout }   = useAuth();
 
   const perfil    = user?.perfil ?? 'aluno';
-  const itensMenu = MENUS[perfil];
+  const itensMenu = MENUS[perfil]; // seleciona os cards corretos para o perfil logado
 
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -112,11 +119,13 @@ export default function DashboardScreen() {
         contentContainerStyle={estilos.conteudo}
         showsVerticalScrollIndicator={false}
       >
+        {/* Saudação personalizada com o nome do usuário */}
         <View style={estilos.saudacao}>
           <Text style={estilos.saudacaoTexto}>Olá, {user?.nome}</Text>
           <Text style={estilos.saudacaoSubtexto}>O que deseja fazer hoje?</Text>
         </View>
 
+        {/* Grade de cards de navegação (2 colunas via flexWrap) */}
         <View style={estilos.grade}>
           {itensMenu.map((item) => (
             <TouchableOpacity
@@ -132,6 +141,7 @@ export default function DashboardScreen() {
           ))}
         </View>
 
+        {/* Botão de logout no rodapé */}
         <TouchableOpacity style={estilos.botaoSair} onPress={logout}>
           <Ionicons name="log-out-outline" size={18} color={theme.colors.textSecondary} />
           <Text style={estilos.textoBotaoSair}>Sair do sistema</Text>

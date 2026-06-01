@@ -1,3 +1,8 @@
+// Exibe o boletim de notas de um aluno
+// Aluno: vê o próprio boletim automaticamente
+// Admin: vê lista paginada de alunos para selecionar e depois o boletim
+// Professor: digita a matrícula no campo de busca
+
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,8 +20,9 @@ import { cadastroService, type AlunoListagem } from '../services/cadastroService
 import type { Nota } from '../services/boletimService';
 import { theme } from '../styles/theme';
 
-const ALUNOS_POR_PAGINA = 8;
+const ALUNOS_POR_PAGINA = 8; // número de alunos exibidos por página na lista do admin
 
+// Retorna as cores de fundo e texto do badge de situação
 function corSituacao(situacao: Nota['situacao']) {
   switch (situacao) {
     case 'Aprovado':  return { fundo: '#E6F4EA', texto: theme.colors.success };
@@ -29,23 +35,28 @@ export default function BoletimScreen() {
   const { user } = useAuth();
   const perfil = user?.perfil ?? 'aluno';
 
+  // inputMatricula: o que o usuário digita no campo de busca
+  // matriculaBusca: a matrícula efetivamente enviada ao hook (dispara a requisição)
   const [inputMatricula, setInputMatricula] = useState('');
   const [matriculaBusca, setMatriculaBusca] = useState<string | undefined>(
-    perfil === 'aluno' ? user?.matricula : undefined,
+    perfil === 'aluno' ? user?.matricula : undefined, // aluno já começa com a própria matrícula
   );
 
   const [alunos,           setAlunos]           = useState<AlunoListagem[]>([]);
   const [carregandoAlunos, setCarregandoAlunos] = useState(false);
-  const [pagina,           setPagina]           = useState(1);
+  const [pagina,           setPagina]           = useState(1); // paginação da lista de alunos
 
+  // Hook que busca e organiza os dados do boletim da matrícula atual
   const { notas, nomeAluno, curso, carregando, erro, aprovadas, reprovadas, emExame } =
     useBoletim(matriculaBusca);
 
+  // Admin: carrega a lista completa de alunos para exibir antes da seleção
   useEffect(() => {
     if (perfil !== 'admin') return;
     setCarregandoAlunos(true);
     cadastroService.listarAlunos()
       .then((lista) => {
+        // Ordena por número de matrícula crescente
         const ordenados = [...lista].sort((a, b) => {
           const na = parseInt(a.matricula, 10);
           const nb = parseInt(b.matricula, 10);
@@ -58,6 +69,7 @@ export default function BoletimScreen() {
       .finally(() => setCarregandoAlunos(false));
   }, []);
 
+  // Disparado pelo botão "Buscar" ou pela tecla Enter no campo de busca
   const handleBuscar = () => {
     const valor = inputMatricula.trim();
     if (valor) {
@@ -66,12 +78,14 @@ export default function BoletimScreen() {
     }
   };
 
+  // Admin seleciona um aluno da lista: preenche o campo e dispara a busca
   const selecionarAluno = (aluno: AlunoListagem) => {
     setInputMatricula(aluno.matricula);
     setMatriculaBusca(aluno.matricula);
     setPagina(1);
   };
 
+  // Filtra a lista de alunos pelo que foi digitado (matrícula ou nome)
   const alunosFiltrados = alunos.filter((a) => {
     const termo = inputMatricula.trim().toLowerCase();
     if (!termo) return true;
@@ -81,17 +95,18 @@ export default function BoletimScreen() {
     );
   });
 
+  // Cálculos de paginação da lista de alunos
   const totalPaginas = Math.ceil(alunosFiltrados.length / ALUNOS_POR_PAGINA);
   const alunosPagina = alunosFiltrados.slice(
     (pagina - 1) * ALUNOS_POR_PAGINA,
     pagina * ALUNOS_POR_PAGINA,
   );
 
+  // Controla quando mostrar cada bloco de UI
   const mostrarListaAlunos = perfil === 'admin' && !matriculaBusca;
   const mostrarBoletim     = !!matriculaBusca && !carregando && !erro;
 
-  // Nome exibido no cabeçalho do boletim
-  const nomeExibido = perfil === 'aluno' ? (user?.nome ?? '') : (nomeAluno ?? `Matrícula: ${matriculaBusca}`);
+  const nomeExibido  = perfil === 'aluno' ? (user?.nome ?? '') : (nomeAluno ?? `Matrícula: ${matriculaBusca}`);
   const cursoExibido = curso ?? '';
 
   return (
@@ -102,7 +117,7 @@ export default function BoletimScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Campo de busca (admin / professor) */}
+        {/* Campo de busca por matrícula (visível apenas para admin e professor) */}
         {perfil !== 'aluno' && (
           <View style={estilos.buscaContainer}>
             <TextInput
@@ -112,6 +127,7 @@ export default function BoletimScreen() {
               value={inputMatricula}
               onChangeText={(v) => {
                 setInputMatricula(v);
+                // Ao limpar o campo, volta para a lista de alunos (admin)
                 if (!v.trim()) {
                   setMatriculaBusca(undefined);
                   setPagina(1);
@@ -126,7 +142,7 @@ export default function BoletimScreen() {
           </View>
         )}
 
-        {/* Lista paginada de alunos (admin, antes de selecionar) */}
+        {/* Lista paginada de alunos (admin antes de selecionar um) */}
         {mostrarListaAlunos && (
           <>
             <View style={estilos.listaHeader}>
@@ -160,6 +176,7 @@ export default function BoletimScreen() {
                   </TouchableOpacity>
                 ))}
 
+                {/* Controles de paginação (aparecem só se houver mais de uma página) */}
                 {totalPaginas > 1 && (
                   <View style={estilos.paginacao}>
                     <TouchableOpacity
@@ -188,14 +205,14 @@ export default function BoletimScreen() {
           </>
         )}
 
-        {/* Placeholder professor sem busca */}
+        {/* Instrução para professor que ainda não digitou a matrícula */}
         {!matriculaBusca && perfil === 'professor' && (
           <View style={estilos.containerCentro}>
             <Text style={estilos.textoSecundario}>Digite a matrícula para consultar o boletim.</Text>
           </View>
         )}
 
-        {/* Carregando */}
+        {/* Spinner durante a busca do boletim */}
         {carregando && (
           <View style={estilos.containerCentro}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -203,16 +220,17 @@ export default function BoletimScreen() {
           </View>
         )}
 
-        {/* Erro */}
+        {/* Mensagem de erro da API */}
         {!carregando && erro && (
           <View style={estilos.containerCentro}>
             <Text style={{ color: theme.colors.danger, textAlign: 'center' }}>{erro}</Text>
           </View>
         )}
 
-        {/* Boletim */}
+        {/* Boletim completo do aluno selecionado */}
         {mostrarBoletim && (
           <>
+            {/* Cabeçalho azul com nome e curso */}
             <View style={estilos.cabecalho}>
               <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
               <Text style={estilos.cabecalhoNome}>{nomeExibido}</Text>
@@ -221,6 +239,7 @@ export default function BoletimScreen() {
               ) : null}
             </View>
 
+            {/* Resumo: contagem de aprovadas, em exame e reprovadas */}
             <View style={estilos.resumo}>
               <View style={[estilos.resumoItem, { backgroundColor: '#E6F4EA' }]}>
                 <Text style={[estilos.resumoNumero, { color: theme.colors.success }]}>{aprovadas}</Text>
@@ -240,6 +259,7 @@ export default function BoletimScreen() {
               <Text style={estilos.textoSecundario}>Nenhuma nota encontrada para esta matrícula.</Text>
             ) : (
               <>
+                {/* Cabeçalho da tabela */}
                 <View style={estilos.cabecalhoTabela}>
                   <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.cabecalhoTabelaTexto]}>Disciplina</Text>
                   <Text style={[estilos.coluna, estilos.colunaNota,       estilos.cabecalhoTabelaTexto]}>N1</Text>
@@ -248,6 +268,7 @@ export default function BoletimScreen() {
                   <Text style={[estilos.coluna, estilos.colunaSituacao,   estilos.cabecalhoTabelaTexto]}>Situação</Text>
                 </View>
 
+                {/* Linhas alternadas para facilitar a leitura */}
                 {notas.map((item, index) => {
                   const cor = corSituacao(item.situacao);
                   return (

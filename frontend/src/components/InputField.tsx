@@ -1,3 +1,5 @@
+// Campo de texto reutilizável com label, hint opcional e mensagem de erro
+
 import React from 'react';
 import {
   StyleSheet,
@@ -8,10 +10,11 @@ import {
 } from 'react-native';
 import { theme } from '../styles/theme';
 
+// Props: tudo que o TextInput aceita + label obrigatório + hint e error opcionais
 type Props = TextInputProps & {
   label: string;
-  hint?: string;
-  error?: string;
+  hint?: string;   // texto de ajuda abaixo do label (ex: "Buscando endereço...")
+  error?: string;  // mensagem de erro exibida abaixo do input com borda vermelha
 };
 
 export default function InputField({ label, hint, error, ...rest }: Props) {
@@ -19,14 +22,20 @@ export default function InputField({ label, hint, error, ...rest }: Props) {
     <View style={estilos.container}>
       <Text style={estilos.label}>{label}</Text>
 
+      {/* Hint aparece apenas quando fornecido */}
       {hint ? <Text style={estilos.hint}>{hint}</Text> : null}
 
       <TextInput
-        style={[estilos.input, error ? estilos.inputErro : null, rest.editable === false ? estilos.inputBloqueado : null]}
+        style={[
+          estilos.input,
+          error ? estilos.inputErro : null,                        // borda vermelha se houver erro
+          rest.editable === false ? estilos.inputBloqueado : null, // fundo cinza quando não editável
+        ]}
         placeholderTextColor={theme.colors.textSecondary}
         {...rest}
       />
 
+      {/* Mensagem de erro aparece apenas quando fornecida */}
       {error ? <Text style={estilos.textoErro}>{error}</Text> : null}
     </View>
   );
