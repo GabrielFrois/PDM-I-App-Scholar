@@ -25,13 +25,14 @@ const Nota = {
     return result.rows;
   },
 
-  // Retorna todas as notas de um aluno com o nome de cada disciplina
+  // Retorna todas as notas de um aluno com o nome e semestre de cada disciplina
   // Usado no boletim
   async listarPorAluno(alunoId) {
     const result = await pool.query(
       `SELECT
          n.id,
-         d.nome AS disciplina,
+         d.nome      AS disciplina,
+         d.semestre,
          n.nota1,
          n.nota2,
          n.media,

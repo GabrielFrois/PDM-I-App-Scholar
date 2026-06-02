@@ -3,6 +3,7 @@
 // Professor: abre direto no formulário com seus dados; nome e e-mail bloqueados
 
 import { useNavigation } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet,
@@ -63,13 +64,14 @@ export default function CadastroProfessorScreen() {
   useLayoutEffect(() => {
     if (ehProfessor) return;
     navegacao.setOptions({
-      headerLeft: aba === 'formulario'
-        ? () => (
-            <TouchableOpacity onPress={voltarParaLista} style={estilos.botaoHeader}>
-              <Text style={estilos.botaoHeaderTexto}>‹ Lista</Text>
-            </TouchableOpacity>
-          )
-        : undefined,
+      headerTitleAlign: 'center',
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={aba === 'formulario' ? voltarParaLista : () => navegacao.goBack()}
+          tintColor="#FFFFFF"
+          style={{ marginLeft: -8 }}
+        />
+      ),
     });
   }, [aba, navegacao, voltarParaLista]);
 

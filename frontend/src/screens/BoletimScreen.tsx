@@ -3,7 +3,7 @@
 // Admin: vê lista paginada de alunos para selecionar e depois o boletim
 // Professor: digita a matrícula no campo de busca
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { useAuth } from '../contexts/AuthContext';
 import { useBoletim } from '../hooks/useBoletim';
 import { cadastroService, type AlunoListagem } from '../services/cadastroService';
@@ -33,7 +35,8 @@ function corSituacao(situacao: Nota['situacao']) {
 
 export default function BoletimScreen() {
   const { user } = useAuth();
-  const perfil = user?.perfil ?? 'aluno';
+  const perfil    = user?.perfil ?? 'aluno';
+  const navegacao = useNavigation();
 
   // inputMatricula: o que o usuário digita no campo de busca
   // matriculaBusca: a matrícula efetivamente enviada ao hook (dispara a requisição)
@@ -49,6 +52,32 @@ export default function BoletimScreen() {
   // Hook que busca e organiza os dados do boletim da matrícula atual
   const { notas, nomeAluno, curso, carregando, erro, aprovadas, reprovadas, emExame } =
     useBoletim(matriculaBusca);
+
+  // Ação do botão de voltar: admin na lista volta ao Dashboard;
+  // admin dentro de um boletim volta para a lista
+  const handleVoltar = useCallback(() => {
+    if (perfil === 'admin' && matriculaBusca) {
+      setMatriculaBusca(undefined);
+      setInputMatricula('');
+      setPagina(1);
+    } else {
+      navegacao.goBack();
+    }
+  }, [perfil, matriculaBusca, navegacao]);
+
+  // Mantém o HeaderBackButton e o título sempre na mesma posição
+  useLayoutEffect(() => {
+    navegacao.setOptions({
+      headerTitleAlign: 'center',
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={handleVoltar}
+          tintColor="#FFFFFF"
+          style={{ marginLeft: -8 }}
+        />
+      ),
+    });
+  }, [navegacao, handleVoltar]);
 
   // Admin: carrega a lista completa de alunos para exibir antes da seleção
   useEffect(() => {

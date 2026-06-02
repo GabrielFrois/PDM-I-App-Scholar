@@ -1,8 +1,9 @@
 // Tela com duas visões:
-// - Admin: lista de alunos com botões Editar/Remover + formulário de cadastro/edição
-// - Aluno: abre direto no formulário com seus dados carregados e campos sensíveis bloqueados
+// Admin: lista de alunos com botões Editar/Remover + formulário de cadastro/edição
+// Aluno: abre direto no formulário com seus dados carregados e campos sensíveis bloqueados
 
 import { useNavigation } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet,
@@ -83,18 +84,18 @@ export default function CadastroAlunoScreen() {
     setAba('lista');
   }, [resetar]);
 
-  // Substitui o botão "Voltar" nativo do header por um botão "‹ Lista" customizado
   // Só ativo quando o admin está no formulário (evita o back nativo que não reseta o estado)
   useLayoutEffect(() => {
     if (ehAluno) return;
     navegacao.setOptions({
-      headerLeft: aba === 'formulario'
-        ? () => (
-            <TouchableOpacity onPress={voltarParaLista} style={estilos.botaoHeader}>
-              <Text style={estilos.botaoHeaderTexto}>‹ Lista</Text>
-            </TouchableOpacity>
-          )
-        : undefined,
+      headerTitleAlign: 'center',
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={aba === 'formulario' ? voltarParaLista : () => navegacao.goBack()}
+          tintColor="#FFFFFF"
+          style={{ marginLeft: -8 }}
+        />
+      ),
     });
   }, [aba, navegacao, voltarParaLista]);
 

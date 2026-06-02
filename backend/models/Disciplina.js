@@ -26,10 +26,13 @@ const Disciplina = {
   // Lista disciplinas ativas com paginação e JOIN para trazer o nome do professor
   // Se professorId for informado, filtra só as disciplinas daquele professor
   async listar({ pagina = 1, limite = 20, professorId = null } = {}) {
-    const offset    = (pagina - 1) * limite;
-    // Adiciona o filtro de professor ao WHERE apenas se for necessário
-    const whereProf = professorId ? 'AND d.professor_id = $3' : '';
-    const params    = professorId ? [limite, offset, professorId] : [limite, offset];
+    const offset = (pagina - 1) * limite;
+
+    // Adiciona o filtro de professor ao WHERE apenas se for necessário.
+    const whereProf  = professorId ? 'AND d.professor_id = $3' : '';
+    const whereCount = professorId ? 'AND d.professor_id = $1' : '';
+    const params      = professorId ? [limite, offset, professorId] : [limite, offset];
+    const paramsCount = professorId ? [professorId] : [];
 
     const [data, count] = await Promise.all([
       pool.query(
@@ -43,8 +46,8 @@ const Disciplina = {
         params
       ),
       pool.query(
-        `SELECT COUNT(*) FROM disciplinas d WHERE d.deleted_at IS NULL ${whereProf}`,
-        professorId ? [professorId] : []
+        `SELECT COUNT(*) FROM disciplinas d WHERE d.deleted_at IS NULL ${whereCount}`,
+        paramsCount
       ),
     ]);
     return { dados: data.rows, total: parseInt(count.rows[0].count), pagina, limite };

@@ -7,6 +7,7 @@ import { api } from './api';
 export type Nota = {
   id:         number;
   disciplina: string;
+  semestre:   string;
   nota1:      number;
   nota2:      number;
   media:      number;
