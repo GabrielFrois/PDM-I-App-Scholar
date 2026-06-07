@@ -1,30 +1,53 @@
-// Mesma estrutura do alunosController, adaptada para professores
+// Cadastro, listagem, edição e remoção (soft delete)
+// Regras de acesso (definidas nas rotas):
+//   - cadastrar / remover: somente admin
+//   - listar: admin e professor
+//   - atualizar: admin (qualquer professor) ou o próprio professor (controlado aqui pelo e-mail do token)
 
+const bcrypt    = require('bcrypt');
+const pool      = require('../database/db');
 const Professor = require('../models/Professor');
 
-// POST /api/professores - somente admin
 async function cadastrar(req, res) {
-  const { nome, titulacao, areaAtuacao, tempoDocencia, email } = req.body;
+  const { nome, titulacao, areaAtuacao, tempoDocencia, email, senha } = req.body;
 
   if (!nome || !titulacao || !areaAtuacao || !email) {
     return res.status(400).json({ erro: 'Nome, titulação, área e e-mail são obrigatórios.' });
   }
 
+  if (!senha || senha.trim().length < 6) {
+    return res.status(400).json({ erro: 'Informe uma senha inicial com pelo menos 6 caracteres.' });
+  }
+
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const professor = await Professor.criar({ nome, titulacao, areaAtuacao, tempoDocencia, email });
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+    await client.query(
+      `INSERT INTO usuarios (email, senha_hash, perfil) VALUES ($1, $2, 'professor')
+       ON CONFLICT (email) DO NOTHING`,
+      [email, senhaHash]
+    );
+
+    await client.query('COMMIT');
     return res.status(201).json({ mensagem: 'Professor cadastrado com sucesso!', professor });
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') {
       return res.status(409).json({ erro: 'E-mail já cadastrado.' });
     }
     console.error('[professores.cadastrar]', err.message);
     return res.status(500).json({ erro: 'Erro interno do servidor.' });
+  } finally {
+    client.release();
   }
 }
 
-// GET /api/professores
-// Com ?email=... -> retorna um professor específico (usado pelo professor para carregar seus dados)
-// Sem parâmetro -> listagem paginada
+// GET /api/professores?email=x -> busca um professor por e-mail (auto-preencher no cadastro)
+// GET /api/professores?pagina=1&limite=20 -> lista paginada
 async function listar(req, res) {
   const { email } = req.query;
 
@@ -50,7 +73,6 @@ async function listar(req, res) {
   }
 }
 
-// PUT /api/professores/:id - admin ou o próprio professor
 async function atualizar(req, res) {
   const { id } = req.params;
   const { perfil, email: emailToken } = req.usuario;
@@ -61,7 +83,6 @@ async function atualizar(req, res) {
       return res.status(404).json({ erro: 'Professor não encontrado.' });
     }
 
-    // Professor só pode editar o próprio cadastro
     if (perfil === 'professor' && existente.email !== emailToken) {
       return res.status(403).json({ erro: 'Você só pode editar o próprio cadastro.' });
     }
@@ -83,7 +104,6 @@ async function atualizar(req, res) {
   }
 }
 
-// DELETE /api/professores/:id — somente admin (soft delete)
 async function remover(req, res) {
   const { id } = req.params;
 

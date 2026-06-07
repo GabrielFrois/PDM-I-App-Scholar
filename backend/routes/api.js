@@ -11,6 +11,7 @@ const professoresController = require('../controllers/professoresController');
 const disciplinasController = require('../controllers/disciplinasController');
 const boletimController     = require('../controllers/boletimController');
 const notasController       = require('../controllers/notasController');
+const matriculasController  = require('../controllers/matriculasController');
 
 // Rota pública: faz login e devolve o token JWT
 router.post('/login', authController.login);
@@ -41,6 +42,16 @@ router.post('/disciplinas',       autenticar, autorizar('admin'),              d
 router.get('/disciplinas',        autenticar, autorizar('admin', 'professor'), disciplinasController.listar);
 router.put('/disciplinas/:id',    autenticar, autorizar('admin'),              disciplinasController.atualizar);
 router.delete('/disciplinas/:id', autenticar, autorizar('admin'),              disciplinasController.remover);
+
+// Rotas de matrículas (acesso restrito ao admin)
+// GET    /matriculas/:alunoId        -> disciplinas do aluno + ids marcados
+// POST   /matriculas                 -> matricula em uma ou mais disciplinas
+// DELETE /matriculas                 -> remove matrícula de uma disciplina
+// POST   /matriculas/sincronizar     -> salva o estado completo dos checkboxes
+router.get('/matriculas/:alunoId',    autenticar, autorizar('admin'), matriculasController.listarPorAluno);
+router.post('/matriculas',            autenticar, autorizar('admin'), matriculasController.matricular);
+router.delete('/matriculas',          autenticar, autorizar('admin'), matriculasController.desmatricular);
+router.post('/matriculas/sincronizar',autenticar, autorizar('admin'), matriculasController.sincronizar);
 
 // Rotas de notas
 // Listar notas por disciplina: admin e professor (professor só vê as suas)

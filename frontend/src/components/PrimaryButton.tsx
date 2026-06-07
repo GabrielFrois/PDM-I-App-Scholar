@@ -4,17 +4,17 @@
 import React from 'react';
 import {
     ActivityIndicator,
+    Pressable,
+    PressableProps,
     StyleSheet,
     Text,
-    TouchableOpacity,
-    TouchableOpacityProps,
 } from 'react-native';
 import { theme } from '../styles/theme';
 
-type Props = TouchableOpacityProps & {
+type Props = PressableProps & {
   title:    string;
-  loading?: boolean;              // exibe spinner e bloqueia o botão
-  variant?: 'primary' | 'outline'; // primary = fundo azul, outline = borda azul sem preenchimento
+  loading?: boolean;
+  variant?: 'primary' | 'outline';
 };
 
 export default function PrimaryButton({
@@ -26,21 +26,24 @@ export default function PrimaryButton({
   const isPrimary = variant === 'primary';
 
   return (
-    <TouchableOpacity
-      style={[styles.button, isPrimary ? styles.primary : styles.outline]}
-      activeOpacity={0.8}
-      disabled={loading} // impede clique duplo durante requisição
+    <Pressable
+      style={({ pressed }) => [
+        styles.button,
+        isPrimary ? styles.primary : styles.outline,
+        pressed && { opacity: 0.8 },
+        (loading || rest.disabled) && { opacity: 0.6 },
+      ]}
+      disabled={loading || rest.disabled}
       {...rest}
     >
       {loading ? (
-        // Spinner substituindo o texto durante loading
         <ActivityIndicator color={isPrimary ? theme.colors.white : theme.colors.primary} />
       ) : (
         <Text style={[styles.text, isPrimary ? styles.textPrimary : styles.textOutline]}>
           {title}
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

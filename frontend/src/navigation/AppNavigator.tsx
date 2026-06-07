@@ -1,4 +1,6 @@
-// Define todas as rotas do app e controla qual pilha exibir
+// Usa um único Stack Navigator com duas "zonas":
+//   - Não autenticado: apenas a tela de Login (sem header)
+//   - Autenticado: todas as telas protegidas (Painel, Cadastros, Boletim, Notas)
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
@@ -13,8 +15,6 @@ import DashboardScreen          from '../screens/DashboardScreen';
 import LancamentoNotasScreen    from '../screens/LancamentoNotasScreen';
 import LoginScreen              from '../screens/LoginScreen';
 
-// Mapa de rotas com seus parâmetros (undefined = sem parâmetros)
-// Usado para tipar as chamadas a navigation.navigate()
 export type RootStackParamList = {
   Login:              undefined;
   Painel:             undefined;
@@ -30,8 +30,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Enquanto o AuthContext restaura a sessão do SecureStore, exibe um spinner
-  // Evita o "flash" da tela de Login para usuários já logados
+  // Enquanto o AuthContext tenta restaurar o token do SecureStore,
+  // exibe um spinner para evitar o flash da tela de Login antes do redirecionamento
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' }}>
@@ -51,15 +51,12 @@ export default function AppNavigator() {
       }}
     >
       {!isAuthenticated ? (
-        // Usuário não autenticado: exibe apenas a tela de login
         <Stack.Screen
           name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
       ) : (
-        // Usuário autenticado: exibe o Dashboard e todas as demais telas
-        // headerLeft: () => null no Painel remove o botão Voltar (não há tela anterior)
         <>
           <Stack.Screen
             name="Painel"

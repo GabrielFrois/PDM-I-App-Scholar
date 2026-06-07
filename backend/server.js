@@ -8,15 +8,18 @@ const routes  = require('./routes/api');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// Configura o CORS para aceitar apenas requisições vindas de IPs locais
-// Isso permite que o Expo rodando em celular físico na mesma rede Wi-Fi acesse o backend
+// Origens explicitamente permitidas
+const origensPermitidas = [
+  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  /^http:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/,
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite requisições sem origin
+    // Permite requisições sem origin (ex: curl, Postman, apps nativos)
     if (!origin) return callback(null, true);
-    // Testa se o origin bate com algum IP da rede local
-    const local = /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
-    callback(local ? null : new Error('CORS bloqueado'), local);
+    const permitido = origensPermitidas.some((regex) => regex.test(origin));
+    callback(permitido ? null : new Error('CORS bloqueado'), permitido);
   },
   credentials: true,
 }));

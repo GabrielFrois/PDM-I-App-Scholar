@@ -1,32 +1,36 @@
-// Camada de acesso ao banco para a tabela notas
+// Camada de acesso ao banco para a tabela `notas`
+// Cada registro de nota pertence a um par (aluno_id, disciplina_id) e armazena nota1, nota2 e as colunas geradas automaticamente media e situacao
 
 const pool = require('../database/db');
 
 const Nota = {
-  // Retorna todas as notas de uma disciplina com os dados dos alunos
-  // Usado pelo professor para ver a turma completa
+
+  // Retorna todos os alunos matriculados em uma disciplina com suas notas (se já lançadas)
+  // LEFT JOIN em notas: alunos sem nota ainda aparecem com nota1/nota2/media/situacao = null
+  // Usado na tela de Lançamento de Notas do professor
   async listarPorDisciplina(disciplinaId) {
     const result = await pool.query(
       `SELECT
-         n.id,
          a.id        AS aluno_id,
          a.nome      AS aluno,
          a.matricula,
+         n.id,
          n.nota1,
          n.nota2,
          n.media,
          n.situacao
-       FROM notas n
-       JOIN alunos a ON a.id = n.aluno_id AND a.deleted_at IS NULL
-       WHERE n.disciplina_id = $1
+       FROM matriculas m
+       JOIN alunos a ON a.id = m.aluno_id AND a.deleted_at IS NULL
+       LEFT JOIN notas n ON n.aluno_id = a.id AND n.disciplina_id = m.disciplina_id
+       WHERE m.disciplina_id = $1
        ORDER BY a.nome`,
       [disciplinaId]
     );
     return result.rows;
   },
 
-  // Retorna todas as notas de um aluno com o nome e semestre de cada disciplina
-  // Usado no boletim
+  // Retorna todas as disciplinas em que o aluno está matriculado, com suas notas (se lançadas)
+  // Usado no boletim acadêmico.
   async listarPorAluno(alunoId) {
     const result = await pool.query(
       `SELECT
@@ -37,18 +41,17 @@ const Nota = {
          n.nota2,
          n.media,
          n.situacao
-       FROM notas n
-       JOIN disciplinas d ON d.id = n.disciplina_id AND d.deleted_at IS NULL
-       WHERE n.aluno_id = $1
-       ORDER BY d.nome`,
+       FROM matriculas m
+       JOIN disciplinas d ON d.id = m.disciplina_id AND d.deleted_at IS NULL
+       LEFT JOIN notas n ON n.aluno_id = m.aluno_id AND n.disciplina_id = m.disciplina_id
+       WHERE m.aluno_id = $1
+       ORDER BY d.semestre, d.nome`,
       [alunoId]
     );
     return result.rows;
   },
 
-  // Insere uma nota ou atualiza se já existir (INSERT ... ON CONFLICT DO UPDATE)
-  // COALESCE mantém o valor antigo se o novo for null (permite atualizar só nota1 ou só nota2)
-  // media e situacao são calculadas automaticamente pelo banco (GENERATED ALWAYS)
+  // Insere ou atualiza as notas de um aluno em uma disciplina.
   async lancarOuAtualizar({ alunoId, disciplinaId, nota1, nota2 }) {
     const result = await pool.query(
       `INSERT INTO notas (aluno_id, disciplina_id, nota1, nota2)

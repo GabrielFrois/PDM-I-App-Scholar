@@ -1,3 +1,7 @@
+// Lida com listagem e lançamento/atualização de notas por disciplina
+// Admin tem acesso irrestrito a todas as disciplinas e alunos
+// Professor só pode consultar e lançar notas nas disciplinas onde é professor_id
+
 const Nota       = require('../models/Nota');
 const Disciplina = require('../models/Disciplina');
 const Aluno      = require('../models/Aluno');

@@ -1,5 +1,6 @@
-// Tela exclusiva de admin: lista de disciplinas + formulário de criação/edição
-// Professor responsável é selecionado via SelectField (lista vinda da API)
+// Tela de gerenciamento de disciplinas: somente admin
+// Fluxo: aba "Lista" (todas as disciplinas) -> clica em uma -> aba "Formulário" (editar/remover)
+//        ou botão "Nova Disciplina" -> aba "Formulário" em branco
 
 import { useNavigation } from '@react-navigation/native';
 import { HeaderBackButton } from '@react-navigation/elements';
@@ -13,16 +14,11 @@ import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import SelectField, { type OpcaoSelect } from '../components/SelectField';
 import { useFormulario } from '../hooks/useFormulario';
-import {
-  cadastroService,
-  type DisciplinaListagem,
-  type ProfessorListagem,
-} from '../services/cadastroService';
+import { cadastroService, type DisciplinaListagem, type ProfessorListagem } from '../services/cadastroService';
 import { theme } from '../styles/theme';
 
 type Aba = 'lista' | 'formulario';
 
-// Tipo do formulário da disciplina (todos string para compatibilidade com useFormulario)
 type FormDisciplina = {
   nomeDisciplina: string; cargaHoraria: string;
   professorId: string; curso: string; semestre: string;
@@ -32,13 +28,21 @@ const VAZIO: FormDisciplina = {
   nomeDisciplina: '', cargaHoraria: '', professorId: '', curso: '', semestre: '',
 };
 
+const OPCOES_SEMESTRE: OpcaoSelect[] = [
+  { label: '1º Semestre', value: '1º Semestre' },
+  { label: '2º Semestre', value: '2º Semestre' },
+  { label: '3º Semestre', value: '3º Semestre' },
+  { label: '4º Semestre', value: '4º Semestre' },
+  { label: '5º Semestre', value: '5º Semestre' },
+  { label: '6º Semestre', value: '6º Semestre' },
+];
+
 export default function CadastroDisciplinaScreen() {
   const navegacao = useNavigation();
 
   const [aba, setAba]                   = useState<Aba>('lista');
   const [loading, setLoading]           = useState(false);
   const [disciplinaId, setDisciplinaId] = useState<number | null>(null);
-
   const [disciplinas,     setDisciplinas]     = useState<DisciplinaListagem[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(false);
   const [professores,     setProfessores]     = useState<ProfessorListagem[]>([]);
@@ -50,31 +54,23 @@ export default function CadastroDisciplinaScreen() {
       cargaHoraria:   (v) => !v.trim() ? 'Carga horária é obrigatória.'      : '',
       curso:          (v) => !v.trim() ? 'Curso é obrigatório.'               : '',
       semestre:       (v) => !v.trim() ? 'Semestre é obrigatório.'            : '',
-      professorId:    () => '', // professor é opcional; sem regra de obrigatoriedade
+      professorId:    () => '',
     });
 
-  // Monta as opções do SelectField: inclui "Sem professor" como primeira opção
   const opcoesProfessores: OpcaoSelect[] = [
     { label: 'Sem professor responsável', value: '' },
     ...professores.map((p) => ({ label: `${p.nome} (${p.titulacao})`, value: String(p.id) })),
   ];
 
-  // useCallback evita closure stale no useLayoutEffect
-  const voltarParaLista = useCallback(() => {
-    setDisciplinaId(null);
-    resetar();
-    setAba('lista');
-  }, [resetar]);
+  const voltarParaLista = useCallback(() => { setDisciplinaId(null); resetar(); setAba('lista'); }, [resetar]);
 
-  // Personaliza botão de voltar no header quando está no formulário
   useLayoutEffect(() => {
     navegacao.setOptions({
       headerTitleAlign: 'center',
       headerLeft: () => (
         <HeaderBackButton
           onPress={aba === 'formulario' ? voltarParaLista : () => navegacao.goBack()}
-          tintColor="#FFFFFF"
-          style={{ marginLeft: -8 }}
+          tintColor="#FFFFFF" style={{ marginLeft: -8 }}
         />
       ),
     });
@@ -83,30 +79,25 @@ export default function CadastroDisciplinaScreen() {
   const carregarLista = useCallback(async () => {
     setCarregandoLista(true);
     try { setDisciplinas(await cadastroService.listarDisciplinas()); }
-    catch { /* silencioso */ }
-    finally { setCarregandoLista(false); }
+    catch { } finally { setCarregandoLista(false); }
   }, []);
 
   const carregarProfessores = useCallback(async () => {
     setCarregandoProfs(true);
     try { setProfessores(await cadastroService.listarProfessores()); }
-    catch { /* silencioso */ }
-    finally { setCarregandoProfs(false); }
+    catch { } finally { setCarregandoProfs(false); }
   }, []);
 
-  // Carrega disciplinas e professores em paralelo ao montar a tela
-  useEffect(() => { carregarLista(); carregarProfessores(); }, []);
+  useEffect(() => { carregarLista(); carregarProfessores(); }, [carregarLista, carregarProfessores]);
 
-  // Preenche o formulário com os dados da disciplina clicada e troca para a aba de edição
   const abrirEdicao = (disc: DisciplinaListagem) => {
     setDisciplinaId(disc.id);
     preencherFormulario({
-      nomeDisciplina: disc.nome                                              ?? '',
-      cargaHoraria:   String(disc.carga_horaria                             ?? ''),
-      // professor_id pode ser null (disciplina sem professor), converte para string vazia nesse caso
+      nomeDisciplina: disc.nome ?? '',
+      cargaHoraria:   String(disc.carga_horaria ?? ''),
       professorId:    disc.professor_id != null ? String(disc.professor_id) : '',
-      curso:          disc.curso                                             ?? '',
-      semestre:       disc.semestre                                          ?? '',
+      curso:          disc.curso ?? '',
+      semestre:       disc.semestre ?? '',
     });
     setAba('formulario');
   };
@@ -125,21 +116,12 @@ export default function CadastroDisciplinaScreen() {
     if (!validar()) return;
     setLoading(true);
     try {
-      const payload = {
-        nomeDisciplina: formulario.nomeDisciplina,
-        cargaHoraria:   formulario.cargaHoraria,
-        professorId:    formulario.professorId, // string vazia -> backend interpreta como null
-        curso:          formulario.curso,
-        semestre:       formulario.semestre,
-      };
-
       if (disciplinaId) {
-        await cadastroService.atualizarDisciplina(disciplinaId, payload);
-        Alert.alert('Sucesso', 'Disciplina atualizada com sucesso!', [
-          { text: 'OK', onPress: () => { carregarLista(); voltarParaLista(); } },
-        ]);
+        await cadastroService.atualizarDisciplina(disciplinaId, formulario);
+        Alert.alert('Sucesso', 'Disciplina atualizada!');
+        await carregarLista(); voltarParaLista();
       } else {
-        await cadastroService.salvarDisciplina(payload);
+        await cadastroService.salvarDisciplina(formulario);
         Alert.alert('Sucesso', `Disciplina "${formulario.nomeDisciplina}" cadastrada!`, [
           { text: 'OK', onPress: () => { resetar(); carregarLista(); } },
         ]);
@@ -149,7 +131,6 @@ export default function CadastroDisciplinaScreen() {
     } finally { setLoading(false); }
   };
 
-  // Visão de lista
   if (aba === 'lista') {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -172,13 +153,10 @@ export default function CadastroDisciplinaScreen() {
               {disciplinas.map((disc) => (
                 <View key={disc.id} style={estilos.card}>
                   <View style={estilos.cardInfo}>
-                    <Text style={estilos.cardNome} numberOfLines={2}>{disc.nome}</Text>
+                    <Text style={estilos.cardNome} numberOfLines={1}>{disc.nome}</Text>
                     <Text style={estilos.cardSub}>{disc.carga_horaria}h · {disc.semestre}</Text>
-                    <Text style={estilos.cardSub} numberOfLines={1}>{disc.curso}</Text>
-                    {/* Nome do professor vem do JOIN feito na query do backend */}
-                    {disc.professor && (
-                      <Text style={estilos.cardSub} numberOfLines={1}>Prof. {disc.professor}</Text>
-                    )}
+                    <Text style={estilos.cardSub} numberOfLines={1}>{disc.professor ?? 'Sem professor'}</Text>
+                    <Text style={estilos.cardSub}>{disc.curso}</Text>
                   </View>
                   <View style={estilos.cardAcoes}>
                     <TouchableOpacity style={estilos.btnEditar} onPress={() => abrirEdicao(disc)}>
@@ -197,7 +175,6 @@ export default function CadastroDisciplinaScreen() {
     );
   }
 
-  // Visão de formulário
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
@@ -212,7 +189,7 @@ export default function CadastroDisciplinaScreen() {
 
         <Text style={estilos.secaoTitulo}>Dados da Disciplina</Text>
 
-        <InputField label="Nome da disciplina *" placeholder="Ex: Engenharia de Software"
+        <InputField label="Nome da disciplina *" placeholder="Ex: Programação Web"
           value={formulario.nomeDisciplina} onChangeText={(v) => atualizarCampo('nomeDisciplina', v)}
           error={erros.nomeDisciplina} />
 
@@ -220,55 +197,51 @@ export default function CadastroDisciplinaScreen() {
           value={formulario.cargaHoraria} onChangeText={(v) => atualizarCampo('cargaHoraria', v)}
           keyboardType="numeric" error={erros.cargaHoraria} />
 
-        {/* SelectField desabilitado enquanto os professores não terminam de carregar */}
+        <InputField label="Curso *" placeholder="Ex: Desenvolvimento de Software"
+          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)}
+          error={erros.curso} />
+
+        <SelectField label="Semestre *"
+          placeholder="Selecione o semestre"
+          opcoes={OPCOES_SEMESTRE} valor={formulario.semestre}
+          onChange={(v) => atualizarCampo('semestre', v)}
+          error={erros.semestre} />
+
         <SelectField label="Professor responsável"
-          placeholder={carregandoProfs ? 'Carregando professores...' : 'Selecione um professor'}
+          placeholder={carregandoProfs ? 'Carregando professores...' : 'Selecione o professor (opcional)'}
           opcoes={opcoesProfessores} valor={formulario.professorId}
           onChange={(v) => atualizarCampo('professorId', v)}
           disabled={carregandoProfs} error={erros.professorId} />
 
-        <InputField label="Curso *" placeholder="Ex: Desenvolvimento de Software Multiplataforma"
-          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)}
-          error={erros.curso} />
-
-        <InputField label="Semestre *" placeholder="Ex: 4º Semestre"
-          value={formulario.semestre} onChangeText={(v) => atualizarCampo('semestre', v)}
-          error={erros.semestre} />
-
-        <PrimaryButton
-          title={disciplinaId ? 'Salvar alterações' : 'Cadastrar Disciplina'}
-          onPress={handleSalvar} loading={loading} />
-        <PrimaryButton title="Limpar formulário" variant="outline" onPress={resetar}
-          style={{ marginTop: theme.spacing.sm }} />
+        <PrimaryButton title={disciplinaId ? 'Salvar alterações' : 'Cadastrar Disciplina'} onPress={handleSalvar} loading={loading} />
+        <PrimaryButton title="Limpar formulário" variant="outline" onPress={resetar} style={{ marginTop: theme.spacing.sm }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const estilos = StyleSheet.create({
-  safeArea:         { flex: 1, backgroundColor: theme.colors.background },
-  scroll:           { flex: 1 },
-  conteudo:         { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  centro:           { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md },
-  textoVazio:       { fontSize: theme.font.md, color: theme.colors.textSecondary },
-  listaContainer:   { flex: 1 },
-  listaHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  listaTitle:       { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
-  listaScroll:      { padding: theme.spacing.lg, gap: theme.spacing.sm },
-  botaoNovo:        { backgroundColor: theme.colors.primary, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs + 2, borderRadius: theme.radius.full },
-  botaoNovoTexto:   { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
-  botaoHeader:      { paddingHorizontal: theme.spacing.sm, paddingVertical: 4 },
-  botaoHeaderTexto: { color: theme.colors.white, fontSize: theme.font.md, fontWeight: '600' },
-  card:             { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  cardInfo:         { gap: 3, marginBottom: theme.spacing.sm },
-  cardNome:         { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
-  cardSub:          { fontSize: theme.font.sm, color: theme.colors.textSecondary },
-  cardAcoes:        { flexDirection: 'row', gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.sm },
-  btnEditar:        { flex: 1, backgroundColor: theme.colors.secondary, paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
-  btnEditarTexto:   { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
-  btnRemover:       { flex: 1, backgroundColor: '#FCE8E6', paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
-  btnRemoverTexto:  { fontSize: theme.font.sm, color: theme.colors.danger, fontWeight: '600' },
-  aviso:            { backgroundColor: '#E8F0FE', borderRadius: theme.radius.sm, padding: theme.spacing.sm, marginBottom: theme.spacing.md },
-  avisoTexto:       { fontSize: theme.font.sm, color: theme.colors.primary },
-  secaoTitulo:      { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
+  safeArea:       { flex: 1, backgroundColor: theme.colors.background },
+  scroll:         { flex: 1 },
+  conteudo:       { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  centro:         { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md },
+  textoVazio:     { fontSize: theme.font.md, color: theme.colors.textSecondary },
+  listaContainer: { flex: 1 },
+  listaHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  listaTitle:     { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
+  listaScroll:    { padding: theme.spacing.lg, gap: theme.spacing.sm },
+  botaoNovo:      { backgroundColor: theme.colors.primary, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs + 2, borderRadius: theme.radius.full },
+  botaoNovoTexto: { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
+  card:           { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  cardInfo:       { gap: 3, marginBottom: theme.spacing.sm },
+  cardNome:       { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
+  cardSub:        { fontSize: theme.font.sm, color: theme.colors.textSecondary },
+  cardAcoes:      { flexDirection: 'row', gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.sm },
+  btnEditar:      { flex: 1, backgroundColor: theme.colors.secondary, paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
+  btnEditarTexto: { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
+  btnRemover:     { flex: 1, backgroundColor: '#FCE8E6', paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
+  btnRemoverTexto:{ fontSize: theme.font.sm, color: theme.colors.danger, fontWeight: '600' },
+  aviso:          { backgroundColor: '#E8F0FE', borderRadius: theme.radius.sm, padding: theme.spacing.sm, marginBottom: theme.spacing.md },
+  avisoTexto:     { fontSize: theme.font.sm, color: theme.colors.primary },
+  secaoTitulo:    { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
 });

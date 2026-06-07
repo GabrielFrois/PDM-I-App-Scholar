@@ -1,16 +1,10 @@
-// Tela inicial após o login: exibe os cards de navegação de acordo com o perfil do usuário
+// Tela inicial: Renderiza um grid de cards de navegação de acordo com o perfil do usuário logado.
 
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, type Perfil } from '../contexts/AuthContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -18,7 +12,7 @@ import { theme } from '../styles/theme';
 
 type Navegacao = NativeStackNavigationProp<RootStackParamList, 'Painel'>;
 
-// Estrutura de um item do menu de navegação
+// Estrutura de cada card do menu
 type ItemMenu = {
   titulo:      string;
   icone:       React.ComponentProps<typeof Ionicons>['name'];
@@ -28,22 +22,19 @@ type ItemMenu = {
   corDestaque: string;
 };
 
-// Define os menus exibidos para cada perfil
-// admin: acesso a todos os cadastros e boletim
-// professor: lançamento de notas e seu próprio cadastro
-// aluno: seu boletim e seu cadastro
+// Menus separados por perfil
 const MENUS: Record<Perfil, ItemMenu[]> = {
   admin: [
     {
-      titulo:      'Cadastro de Alunos',
+      titulo:      'Alunos',
       icone:       'person-add-outline',
       rota:        'CadastroAluno',
-      descricao:   'Gerenciar dados dos estudantes',
+      descricao:   'Gerenciar alunos e suas disciplinas',
       corFundo:    '#E8F0FE',
       corDestaque: '#1A73E8',
     },
     {
-      titulo:      'Cadastro de Professores',
+      titulo:      'Professores',
       icone:       'people-outline',
       rota:        'CadastroProfessor',
       descricao:   'Gerenciar corpo docente',
@@ -51,7 +42,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
       corDestaque: '#388E3C',
     },
     {
-      titulo:      'Cadastro de Disciplinas',
+      titulo:      'Disciplinas',
       icone:       'book-outline',
       rota:        'CadastroDisciplina',
       descricao:   'Gerenciar grade curricular',
@@ -59,20 +50,22 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
       corDestaque: '#F57C00',
     },
     {
-      titulo:      'Consultar Boletim',
+      titulo:      'Boletins',
       icone:       'bar-chart-outline',
       rota:        'Boletim',
-      descricao:   'Visualizar notas e situação',
-      corFundo:    '#FCE8E6',
-      corDestaque: '#D32F2F',
+      descricao:   'Consultar boletim de qualquer aluno',
+      corFundo:    '#F3E8FD',
+      corDestaque: '#7B1FA2',
     },
   ],
+
+
   professor: [
     {
-      titulo:      'Lançamento de Notas',
+      titulo:      'Notas',
       icone:       'create-outline',
       rota:        'LancamentoNotas',
-      descricao:   'Inserir e alterar notas das suas disciplinas',
+      descricao:   'Lançamento de notas ',
       corFundo:    '#E8F0FE',
       corDestaque: '#1A73E8',
     },
@@ -85,6 +78,7 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
       corDestaque: '#388E3C',
     },
   ],
+
   aluno: [
     {
       titulo:      'Meu Boletim',
@@ -106,30 +100,27 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
 };
 
 export default function DashboardScreen() {
-  const navegacao          = useNavigation<Navegacao>();
-  const { user, logout }   = useAuth();
+  const navegacao        = useNavigation<Navegacao>();
+  const { user, logout } = useAuth();
 
   const perfil    = user?.perfil ?? 'aluno';
-  const itensMenu = MENUS[perfil]; // seleciona os cards corretos para o perfil logado
+  const itensMenu = MENUS[perfil];
 
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
-      <ScrollView
-        style={estilos.scroll}
-        contentContainerStyle={estilos.conteudo}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Saudação personalizada com o nome do usuário */}
+      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false}>
+
+        {/* Saudação personalizada com nome do usuário logado */}
         <View style={estilos.saudacao}>
           <Text style={estilos.saudacaoTexto}>Olá, {user?.nome}</Text>
           <Text style={estilos.saudacaoSubtexto}>O que deseja fazer hoje?</Text>
         </View>
 
-        {/* Grade de cards de navegação (2 colunas via flexWrap) */}
+        {/* Grid de cards, dois por linha via flexWrap */}
         <View style={estilos.grade}>
           {itensMenu.map((item) => (
             <TouchableOpacity
-              key={item.rota}
+              key={item.rota + item.titulo}
               style={[estilos.card, { backgroundColor: item.corFundo }]}
               onPress={() => navegacao.navigate(item.rota)}
               activeOpacity={0.75}
@@ -146,6 +137,7 @@ export default function DashboardScreen() {
           <Ionicons name="log-out-outline" size={18} color={theme.colors.textSecondary} />
           <Text style={estilos.textoBotaoSair}>Sair do sistema</Text>
         </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );

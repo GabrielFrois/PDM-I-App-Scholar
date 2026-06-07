@@ -1,17 +1,12 @@
-// Exibe o boletim de notas de um aluno
-// Aluno: vê o próprio boletim automaticamente
-// Admin: vê lista paginada de alunos para selecionar e depois o boletim
-// Professor: digita a matrícula no campo de busca
+// Comportamento por perfil:
+// aluno: carrega automaticamente o próprio boletim (matrícula vem do token)
+// admin: exibe lista paginada de alunos; ao clicar em um, abre o boletim
+// professor: campo de busca por matrícula
 
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  ActivityIndicator, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -22,14 +17,22 @@ import { cadastroService, type AlunoListagem } from '../services/cadastroService
 import type { Nota } from '../services/boletimService';
 import { theme } from '../styles/theme';
 
-const ALUNOS_POR_PAGINA = 8; // número de alunos exibidos por página na lista do admin
+// Quantos alunos mostrar por página na lista do admin
+const ALUNOS_POR_PAGINA = 8;
 
-// Retorna as cores de fundo e texto do badge de situação
-function corSituacao(situacao: Nota['situacao']) {
+// Formata um valor de nota para uma casa decimal; retorna '—' se nulo
+function formatarNota(valor: number | null | undefined): string {
+  if (valor == null) return '—';
+  return Number(valor).toFixed(1);
+}
+
+// Retorna as cores de fundo e texto para o badge de situação, ou null se sem situação
+function corSituacao(situacao: Nota['situacao']): { fundo: string; texto: string } | null {
   switch (situacao) {
     case 'Aprovado':  return { fundo: '#E6F4EA', texto: theme.colors.success };
     case 'Exame':     return { fundo: '#FEF3E2', texto: theme.colors.warning };
     case 'Reprovado': return { fundo: '#FCE8E6', texto: theme.colors.danger  };
+    default:          return null;
   }
 }
 
@@ -38,23 +41,32 @@ export default function BoletimScreen() {
   const perfil    = user?.perfil ?? 'aluno';
   const navegacao = useNavigation();
 
-  // inputMatricula: o que o usuário digita no campo de busca
-  // matriculaBusca: a matrícula efetivamente enviada ao hook (dispara a requisição)
+  // Para o professor: matrícula digitada no campo de busca
   const [inputMatricula, setInputMatricula] = useState('');
+
+  // Matrícula que de fato está sendo consultada.
+  // Para o aluno já é inicializada com a matrícula do token; para admin/professor começa undefined.
   const [matriculaBusca, setMatriculaBusca] = useState<string | undefined>(
-    perfil === 'aluno' ? user?.matricula : undefined, // aluno já começa com a própria matrícula
+    perfil === 'aluno' ? user?.matricula : undefined,
   );
 
+  // Lista completa de alunos (apenas admin)
   const [alunos,           setAlunos]           = useState<AlunoListagem[]>([]);
   const [carregandoAlunos, setCarregandoAlunos] = useState(false);
-  const [pagina,           setPagina]           = useState(1); // paginação da lista de alunos
 
-  // Hook que busca e organiza os dados do boletim da matrícula atual
+  // Texto do campo de filtro da lista de alunos (admin)
+  const [filtroAlunos, setFiltroAlunos] = useState('');
+
+  // Controle de paginação da lista de alunos (admin)
+  const [pagina, setPagina] = useState(1);
+
+  // Hook que busca o boletim no backend sempre que `matriculaBusca` mudar
   const { notas, nomeAluno, curso, carregando, erro, aprovadas, reprovadas, emExame } =
     useBoletim(matriculaBusca);
 
-  // Ação do botão de voltar: admin na lista volta ao Dashboard;
-  // admin dentro de um boletim volta para a lista
+  // Lógica do botão de voltar do header:
+  // admin com boletim aberto -> volta para a lista de alunos (limpa `matriculaBusca`)
+  // qualquer outro caso -> sai da tela normalmente
   const handleVoltar = useCallback(() => {
     if (perfil === 'admin' && matriculaBusca) {
       setMatriculaBusca(undefined);
@@ -65,27 +77,24 @@ export default function BoletimScreen() {
     }
   }, [perfil, matriculaBusca, navegacao]);
 
-  // Mantém o HeaderBackButton e o título sempre na mesma posição
+  // Sobrescreve o botão de voltar nativo do header com nossa lógica customizada.
+  // useLayoutEffect garante que a atualização acontece antes da renderização visual.
   useLayoutEffect(() => {
     navegacao.setOptions({
       headerTitleAlign: 'center',
       headerLeft: () => (
-        <HeaderBackButton
-          onPress={handleVoltar}
-          tintColor="#FFFFFF"
-          style={{ marginLeft: -8 }}
-        />
+        <HeaderBackButton onPress={handleVoltar} tintColor="#FFFFFF" style={{ marginLeft: -8 }} />
       ),
     });
   }, [navegacao, handleVoltar]);
 
-  // Admin: carrega a lista completa de alunos para exibir antes da seleção
+  // Carrega a lista de alunos assim que a tela monta (somente para admin)
   useEffect(() => {
     if (perfil !== 'admin') return;
     setCarregandoAlunos(true);
     cadastroService.listarAlunos()
       .then((lista) => {
-        // Ordena por número de matrícula crescente
+        // Ordena por número de matrícula (numérico quando possível, lexicográfico como fallback)
         const ordenados = [...lista].sort((a, b) => {
           const na = parseInt(a.matricula, 10);
           const nb = parseInt(b.matricula, 10);
@@ -96,106 +105,94 @@ export default function BoletimScreen() {
       })
       .catch(() => {})
       .finally(() => setCarregandoAlunos(false));
-  }, []);
+  }, [perfil]);
 
-  // Disparado pelo botão "Buscar" ou pela tecla Enter no campo de busca
+  // Acionado pelo botão "Buscar" (fluxo do professor)
   const handleBuscar = () => {
     const valor = inputMatricula.trim();
-    if (valor) {
-      setMatriculaBusca(valor);
-      setPagina(1);
-    }
+    if (valor) { setMatriculaBusca(valor); setPagina(1); }
   };
 
-  // Admin seleciona um aluno da lista: preenche o campo e dispara a busca
+  // Acionado ao clicar em um aluno da lista (fluxo do admin)
   const selecionarAluno = (aluno: AlunoListagem) => {
-    setInputMatricula(aluno.matricula);
     setMatriculaBusca(aluno.matricula);
     setPagina(1);
   };
 
-  // Filtra a lista de alunos pelo que foi digitado (matrícula ou nome)
+  // Filtra a lista de alunos pelo texto digitado no campo de busca do admin
   const alunosFiltrados = alunos.filter((a) => {
-    const termo = inputMatricula.trim().toLowerCase();
+    const termo = filtroAlunos.trim().toLowerCase();
     if (!termo) return true;
-    return (
-      a.matricula.toLowerCase().includes(termo) ||
-      a.nome.toLowerCase().includes(termo)
-    );
+    return a.matricula.toLowerCase().includes(termo) || a.nome.toLowerCase().includes(termo);
   });
 
-  // Cálculos de paginação da lista de alunos
+  // Fatia da lista de alunos para a página atual
   const totalPaginas = Math.ceil(alunosFiltrados.length / ALUNOS_POR_PAGINA);
   const alunosPagina = alunosFiltrados.slice(
     (pagina - 1) * ALUNOS_POR_PAGINA,
     pagina * ALUNOS_POR_PAGINA,
   );
 
-  // Controla quando mostrar cada bloco de UI
+  // Flags derivadas de estado para controlar o que renderizar
   const mostrarListaAlunos = perfil === 'admin' && !matriculaBusca;
   const mostrarBoletim     = !!matriculaBusca && !carregando && !erro;
 
+  // Nome e curso a exibir no cabeçalho do boletim
   const nomeExibido  = perfil === 'aluno' ? (user?.nome ?? '') : (nomeAluno ?? `Matrícula: ${matriculaBusca}`);
   const cursoExibido = curso ?? '';
 
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
-      <ScrollView
-        style={estilos.scroll}
-        contentContainerStyle={estilos.conteudo}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Campo de busca por matrícula (visível apenas para admin e professor) */}
-        {perfil !== 'aluno' && (
+      <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
+        showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+        {perfil !== 'aluno' && !matriculaBusca && (
           <View style={estilos.buscaContainer}>
             <TextInput
               style={estilos.buscaInput}
               placeholder="Buscar por matrícula ou nome"
               placeholderTextColor={theme.colors.textSecondary}
-              value={inputMatricula}
+              value={perfil === 'admin' ? filtroAlunos : inputMatricula}
               onChangeText={(v) => {
-                setInputMatricula(v);
-                // Ao limpar o campo, volta para a lista de alunos (admin)
-                if (!v.trim()) {
-                  setMatriculaBusca(undefined);
+                if (perfil === 'admin') {
+                  // Admin: filtra a lista em tempo real
+                  setFiltroAlunos(v);
                   setPagina(1);
+                  if (!v.trim() && matriculaBusca) setMatriculaBusca(undefined);
+                } else {
+                  // Professor: apenas atualiza o input; a busca é disparada manualmente
+                  setInputMatricula(v);
+                  if (!v.trim()) setMatriculaBusca(undefined);
                 }
               }}
               returnKeyType="search"
-              onSubmitEditing={handleBuscar}
+              onSubmitEditing={perfil === 'professor' ? handleBuscar : undefined}
             />
-            <TouchableOpacity style={estilos.buscaBotao} onPress={handleBuscar}>
-              <Text style={estilos.buscaBotaoTexto}>Buscar</Text>
-            </TouchableOpacity>
+            {/* Botão "Buscar" só aparece para professor (admin filtra em tempo real) */}
+            {perfil === 'professor' && (
+              <TouchableOpacity style={estilos.buscaBotao} onPress={handleBuscar}>
+                <Text style={estilos.buscaBotaoTexto}>Buscar</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {/* Lista paginada de alunos (admin antes de selecionar um) */}
+        {/* Lista paginada de alunos, visível apenas para admin antes de selecionar um aluno */}
         {mostrarListaAlunos && (
           <>
             <View style={estilos.listaHeader}>
               <Text style={estilos.listaTitulo}>Alunos cadastrados</Text>
-              <Text style={estilos.listaTotal}>
-                {alunosFiltrados.length} aluno{alunosFiltrados.length !== 1 ? 's' : ''}
-              </Text>
+              <Text style={estilos.listaTotal}>{alunosFiltrados.length} aluno{alunosFiltrados.length !== 1 ? 's' : ''}</Text>
             </View>
 
             {carregandoAlunos ? (
-              <View style={estilos.containerCentro}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-              </View>
+              <View style={estilos.containerCentro}><ActivityIndicator size="large" color={theme.colors.primary} /></View>
             ) : alunosFiltrados.length === 0 ? (
               <Text style={estilos.textoSecundario}>Nenhum aluno encontrado.</Text>
             ) : (
               <>
                 {alunosPagina.map((aluno) => (
-                  <TouchableOpacity
-                    key={aluno.id}
-                    style={estilos.cardAluno}
-                    onPress={() => selecionarAluno(aluno)}
-                    activeOpacity={0.75}
-                  >
+                  <TouchableOpacity key={aluno.id} style={estilos.cardAluno} onPress={() => selecionarAluno(aluno)} activeOpacity={0.75}>
                     <View style={{ flex: 1 }}>
                       <Text style={estilos.cardAlunoNome} numberOfLines={1}>{aluno.nome}</Text>
                       <Text style={estilos.cardAlunoInfo}>Matrícula: {aluno.matricula}</Text>
@@ -205,27 +202,17 @@ export default function BoletimScreen() {
                   </TouchableOpacity>
                 ))}
 
-                {/* Controles de paginação (aparecem só se houver mais de uma página) */}
+                {/* Controles de paginação, só aparecem se houver mais de uma página */}
                 {totalPaginas > 1 && (
                   <View style={estilos.paginacao}>
-                    <TouchableOpacity
-                      style={[estilos.pagBotao, pagina === 1 && estilos.pagBotaoDisabled]}
-                      onPress={() => setPagina((p) => Math.max(1, p - 1))}
-                      disabled={pagina === 1}
-                    >
-                      <Text style={[estilos.pagBotaoTexto, pagina === 1 && estilos.pagTextoDisabled]}>
-                        ‹ Anterior
-                      </Text>
+                    <TouchableOpacity style={[estilos.pagBotao, pagina === 1 && estilos.pagBotaoDisabled]}
+                      onPress={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina === 1}>
+                      <Text style={[estilos.pagBotaoTexto, pagina === 1 && estilos.pagTextoDisabled]}>‹ Anterior</Text>
                     </TouchableOpacity>
                     <Text style={estilos.pagInfo}>{pagina} / {totalPaginas}</Text>
-                    <TouchableOpacity
-                      style={[estilos.pagBotao, pagina === totalPaginas && estilos.pagBotaoDisabled]}
-                      onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                      disabled={pagina === totalPaginas}
-                    >
-                      <Text style={[estilos.pagBotaoTexto, pagina === totalPaginas && estilos.pagTextoDisabled]}>
-                        Próximo ›
-                      </Text>
+                    <TouchableOpacity style={[estilos.pagBotao, pagina === totalPaginas && estilos.pagBotaoDisabled]}
+                      onPress={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}>
+                      <Text style={[estilos.pagBotaoTexto, pagina === totalPaginas && estilos.pagTextoDisabled]}>Próximo ›</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -234,14 +221,14 @@ export default function BoletimScreen() {
           </>
         )}
 
-        {/* Instrução para professor que ainda não digitou a matrícula */}
+        {/* Instrução para professor antes de digitar uma matrícula */}
         {!matriculaBusca && perfil === 'professor' && (
           <View style={estilos.containerCentro}>
             <Text style={estilos.textoSecundario}>Digite a matrícula para consultar o boletim.</Text>
           </View>
         )}
 
-        {/* Spinner durante a busca do boletim */}
+        {/* Spinner de carregamento do boletim */}
         {carregando && (
           <View style={estilos.containerCentro}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -249,26 +236,24 @@ export default function BoletimScreen() {
           </View>
         )}
 
-        {/* Mensagem de erro da API */}
+        {/* Mensagem de erro retornada pela API */}
         {!carregando && erro && (
           <View style={estilos.containerCentro}>
             <Text style={{ color: theme.colors.danger, textAlign: 'center' }}>{erro}</Text>
           </View>
         )}
 
-        {/* Boletim completo do aluno selecionado */}
+        {/* Boletim */}
         {mostrarBoletim && (
           <>
-            {/* Cabeçalho azul com nome e curso */}
+            {/* Cabeçalho colorido com nome e curso do aluno */}
             <View style={estilos.cabecalho}>
               <Text style={estilos.cabecalhoTitulo}>Boletim Acadêmico</Text>
               <Text style={estilos.cabecalhoNome}>{nomeExibido}</Text>
-              {cursoExibido ? (
-                <Text style={estilos.cabecalhoSemestre}>{cursoExibido}</Text>
-              ) : null}
+              {cursoExibido ? <Text style={estilos.cabecalhoSemestre}>{cursoExibido}</Text> : null}
             </View>
 
-            {/* Resumo: contagem de aprovadas, em exame e reprovadas */}
+            {/* Cards de resumo: totais por situação */}
             <View style={estilos.resumo}>
               <View style={[estilos.resumoItem, { backgroundColor: '#E6F4EA' }]}>
                 <Text style={[estilos.resumoNumero, { color: theme.colors.success }]}>{aprovadas}</Text>
@@ -285,10 +270,10 @@ export default function BoletimScreen() {
             </View>
 
             {notas.length === 0 ? (
-              <Text style={estilos.textoSecundario}>Nenhuma nota encontrada para esta matrícula.</Text>
+              <Text style={estilos.textoSecundario}>Nenhuma disciplina matriculada encontrada.</Text>
             ) : (
               <>
-                {/* Cabeçalho da tabela */}
+                {/* Cabeçalho da tabela de notas */}
                 <View style={estilos.cabecalhoTabela}>
                   <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.cabecalhoTabelaTexto]}>Disciplina</Text>
                   <Text style={[estilos.coluna, estilos.colunaNota,       estilos.cabecalhoTabelaTexto]}>N1</Text>
@@ -297,19 +282,25 @@ export default function BoletimScreen() {
                   <Text style={[estilos.coluna, estilos.colunaSituacao,   estilos.cabecalhoTabelaTexto]}>Situação</Text>
                 </View>
 
-                {/* Linhas alternadas para facilitar a leitura */}
+                {/* Uma linha por disciplina */}
                 {notas.map((item, index) => {
                   const cor = corSituacao(item.situacao);
                   return (
-                    <View key={item.id} style={[estilos.linha, index % 2 === 0 ? estilos.linhaPar : estilos.linhaImpar]}>
+                    <View key={item.id ?? item.disciplina} style={[estilos.linha, index % 2 === 0 ? estilos.linhaPar : estilos.linhaImpar]}>
                       <Text style={[estilos.coluna, estilos.colunaDisciplina, estilos.celula]} numberOfLines={2}>{item.disciplina}</Text>
-                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota1).toFixed(1)}</Text>
-                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{Number(item.nota2).toFixed(1)}</Text>
-                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula, estilos.media]}>{Number(item.media).toFixed(1)}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{formatarNota(item.nota1)}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula]}>{formatarNota(item.nota2)}</Text>
+                      <Text style={[estilos.coluna, estilos.colunaNota, estilos.celula, estilos.media]}>{formatarNota(item.media)}</Text>
                       <View style={[estilos.coluna, estilos.colunaSituacao, estilos.colunaAlinhada]}>
-                        <View style={[estilos.badge, { backgroundColor: cor.fundo }]}>
-                          <Text style={[estilos.badgeTexto, { color: cor.texto }]}>{item.situacao}</Text>
-                        </View>
+                        {cor ? (
+                          // Badge colorido quando a situação já foi calculada
+                          <View style={[estilos.badge, { backgroundColor: cor.fundo }]}>
+                            <Text style={[estilos.badgeTexto, { color: cor.texto }]}>{item.situacao}</Text>
+                          </View>
+                        ) : (
+                          // Traço quando as notas ainda não foram lançadas
+                          <Text style={[estilos.celula, { color: theme.colors.textSecondary }]}>—</Text>
+                        )}
                       </View>
                     </View>
                   );

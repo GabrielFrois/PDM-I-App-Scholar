@@ -1,7 +1,9 @@
-// Tela de lançamento de notas para professores (e admin)
-// Fluxo: seleciona disciplina -> exibe turma com inputs de N1/N2 por aluno -> salva aluno a aluno
+// Tela de lançamento de notas para professores e admin
+// Fluxo em duas visões dentro da mesma tela:
+// Seleção de disciplina -> lista de cards com as disciplinas disponíveis
+// Lançamento de notas -> tabela com inputs de N1/N2 por aluno da turma
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,18 +15,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { cadastroService, type DisciplinaListagem } from '../services/cadastroService';
 import { notasService, type NotaTurma } from '../services/notasService';
 import { theme } from '../styles/theme';
 
-// Estado de edição de notas: uma entrada por aluno, guardada pelo aluno_id
+// Tipo auxiliar para o estado de edição: um par nota1/nota2 por aluno (como string para os inputs)
 type EdicaoNotas = {
   nota1: string;
   nota2: string;
 };
 
-// Componente para o badge colorido de situação (Aprovado / Exame / Reprovado)
-// Retorna null se a situação ainda for null (notas não lançadas)
+// Badge colorido exibido ao lado do nome do aluno após as notas serem salvas
+// Retorna null enquanto a situação ainda não foi calculada
 function BadgeSituacao({ situacao }: { situacao: NotaTurma['situacao'] }) {
   if (!situacao) return null;
   const cores: Record<string, { bg: string; fg: string }> = {
@@ -41,20 +45,25 @@ function BadgeSituacao({ situacao }: { situacao: NotaTurma['situacao'] }) {
 }
 
 export default function LancamentoNotasScreen() {
+  const navegacao = useNavigation();
+
+  // Lista de disciplinas disponíveis para o usuário logado
   const [disciplinas,           setDisciplinas]           = useState<DisciplinaListagem[]>([]);
+  // Disciplina atualmente selecionada (null = ainda na tela de seleção)
   const [disciplinaSelecionada, setDisciplinaSelecionada] = useState<DisciplinaListagem | null>(null);
+  // Alunos da turma com suas notas atuais
   const [notas,                 setNotas]                 = useState<NotaTurma[]>([]);
 
-  // edicao: mapa de alunoId -> { nota1, nota2 } com os valores que o professor está digitando
+  // Mapa de alunoId -> { nota1, nota2 } com os valores que o professor está digitando nos inputs
   const [edicao,   setEdicao]   = useState<Record<number, EdicaoNotas>>({});
-  // salvando: mapa de alunoId -> boolean para controlar o spinner individual de cada aluno
+  // Mapa de alunoId -> boolean para controlar o spinner individual do botão confirmar de cada aluno
   const [salvando, setSalvando] = useState<Record<number, boolean>>({});
 
   const [carregandoDisc,  setCarregandoDisc]  = useState(false);
   const [carregandoNotas, setCarregandoNotas] = useState(false);
 
-  // Ao montar a tela, carrega as disciplinas disponíveis para o professor logado
-  // (professor recebe só as suas; admin recebe todas - filtro feito no backend)
+  // Carrega as disciplinas ao montar a tela
+  // O backend filtra automaticamente: professor recebe só as suas, admin recebe todas
   useEffect(() => {
     async function carregarDisciplinas() {
       setCarregandoDisc(true);
@@ -69,8 +78,24 @@ export default function LancamentoNotasScreen() {
     carregarDisciplinas();
   }, []);
 
-  // Chamado quando o professor clica em uma disciplina:
-  // carrega a turma e inicializa o estado de edição com as notas já salvas
+  const handleVoltar = useCallback(() => {
+    if (disciplinaSelecionada) {
+      setDisciplinaSelecionada(null);
+    } else {
+      navegacao.goBack();
+    }
+  }, [disciplinaSelecionada, navegacao]);
+
+  // Sobrescreve o botão de voltar nativo com lógica acima
+  useLayoutEffect(() => {
+    navegacao.setOptions({
+      headerLeft: () => (
+        <HeaderBackButton onPress={handleVoltar} tintColor="#FFFFFF" style={{ marginLeft: -8 }} />
+      ),
+    });
+  }, [navegacao, handleVoltar]);
+
+  // Carrega a turma ao selecionar uma disciplina e inicializa o estado de edição
   const selecionarDisciplina = useCallback(async (disc: DisciplinaListagem) => {
     setDisciplinaSelecionada(disc);
     setNotas([]);
@@ -81,8 +106,7 @@ export default function LancamentoNotasScreen() {
       const resp = await notasService.listarPorDisciplina(disc.id);
       setNotas(resp.notas);
 
-      // Pré-preenche os inputs com as notas já existentes no banco
-      // nota null (não lançada) -> string vazia no input
+      // Pré-preenche os inputs com as notas já salvas no banco.
       const estadoInicial: Record<number, EdicaoNotas> = {};
       for (const n of resp.notas) {
         estadoInicial[n.aluno_id] = {
@@ -98,8 +122,7 @@ export default function LancamentoNotasScreen() {
     }
   }, []);
 
-  // Valida e atualiza o valor digitado nos inputs de nota
-  // Regex: aceita até 2 dígitos inteiros e 1 decimal (ex: "10", "7.5", "9,8")
+  // Regex: aceita até 2 dígitos inteiros e 1 decimal, ex: "10", "7.5", "9,8"
   const atualizarNota = (alunoId: number, campo: 'nota1' | 'nota2', valor: string) => {
     if (valor !== '' && !/^\d{0,2}([.,]\d?)?$/.test(valor)) return;
     setEdicao((prev) => ({
@@ -108,7 +131,7 @@ export default function LancamentoNotasScreen() {
     }));
   };
 
-  // Salva as notas de um aluno específico e recarrega a turma para refletir a média calculada
+  // Envia as notas de um aluno para a API e recarrega a turma para exibir a média recalculada
   const salvarAluno = async (nota: NotaTurma) => {
     if (!disciplinaSelecionada) return;
     const campos = edicao[nota.aluno_id];
@@ -120,7 +143,7 @@ export default function LancamentoNotasScreen() {
     const nota1 = nota1Str !== '' ? parseFloat(nota1Str) : null;
     const nota2 = nota2Str !== '' ? parseFloat(nota2Str) : null;
 
-    // Validação local antes de chamar a API
+    // Validação local que evita requisição desnecessária se o valor estiver fora do intervalo
     if (nota1 != null && (isNaN(nota1) || nota1 < 0 || nota1 > 10)) {
       Alert.alert('Nota inválida', `Nota 1 de ${nota.aluno} deve ser entre 0 e 10.`);
       return;
@@ -130,7 +153,7 @@ export default function LancamentoNotasScreen() {
       return;
     }
 
-    // Ativa o spinner só para o botão do aluno que está sendo salvo
+    // Ativa o spinner apenas no botão do aluno sendo salvo (os demais permanecem editáveis)
     setSalvando((prev) => ({ ...prev, [nota.aluno_id]: true }));
     try {
       await notasService.lancar({
@@ -139,7 +162,7 @@ export default function LancamentoNotasScreen() {
         nota1,
         nota2,
       });
-      // Recarrega a turma para exibir a média e situação recalculadas pelo banco
+      // Recarrega a turma para exibir a média e situação calculadas pelo banco (GENERATED ALWAYS)
       await selecionarDisciplina(disciplinaSelecionada);
     } catch (err: any) {
       Alert.alert('Erro ao salvar', err.message);
@@ -148,7 +171,7 @@ export default function LancamentoNotasScreen() {
     }
   };
 
-  // Primeira visão: seleção de disciplina
+  // Visão 1: seleção de disciplina
   if (!disciplinaSelecionada) {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -180,17 +203,12 @@ export default function LancamentoNotasScreen() {
     );
   }
 
-  // Segunda visão: lançamento de notas da turma
+  // Visão 2: lançamento de notas da turma
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false}>
 
-        {/* Chip para voltar à seleção de disciplina */}
-        <TouchableOpacity style={estilos.chipVoltar} onPress={() => setDisciplinaSelecionada(null)}>
-          <Text style={estilos.chipVoltarTexto}>← Trocar disciplina</Text>
-        </TouchableOpacity>
-
-        {/* Cabeçalho azul com nome e info da disciplina selecionada */}
+        {/* Cabeçalho azul com nome e informações da disciplina selecionada */}
         <View style={estilos.cabecalho}>
           <Text style={estilos.cabecalhoTitulo}>{disciplinaSelecionada.nome}</Text>
           <Text style={estilos.cabecalhoSub}>
@@ -207,16 +225,16 @@ export default function LancamentoNotasScreen() {
           <Text style={estilos.textoSecundario}>Nenhum aluno matriculado nesta disciplina.</Text>
         ) : (
           <>
-            {/* Cabeçalho das colunas da tabela */}
+            {/* Cabeçalho das colunas */}
             <View style={estilos.tabelaCabecalho}>
               <Text style={[estilos.colAluno, estilos.thTexto]}>Aluno</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N1</Text>
               <Text style={[estilos.colNota,  estilos.thTexto]}>N2</Text>
               <Text style={[estilos.colMedia, estilos.thTexto]}>Méd.</Text>
-              <View style={estilos.colAcao} /> {/* espaço reservado para o botão ✓ */}
+              <View style={estilos.colAcao} />
             </View>
 
-            {/* Um cartão por aluno com inputs de N1, N2 e botão de salvar */}
+            {/* Um cartão por aluno com inputs de N1, N2, média calculada e botão de salvar */}
             {notas.map((item) => {
               const campos     = edicao[item.aluno_id] ?? { nota1: '', nota2: '' };
               const isSalvando = salvando[item.aluno_id] ?? false;
@@ -232,7 +250,7 @@ export default function LancamentoNotasScreen() {
                     <BadgeSituacao situacao={item.situacao} />
                   </View>
 
-                  {/* Linha inferior: inputs de N1 e N2, média calculada e botão salvar */}
+                  {/* Linha inferior: inputs de nota, média e botão de salvar */}
                   <View style={estilos.linhaNotas}>
                     <View style={estilos.grupoInput}>
                       <Text style={estilos.labelNota}>N1</Text>
@@ -260,7 +278,7 @@ export default function LancamentoNotasScreen() {
                       />
                     </View>
 
-                    {/* Média vem do banco (GENERATED ALWAYS); exibida somente após salvar */}
+                    {/* Média é calculada pelo banco (coluna GENERATED ALWAYS), só exibe após salvar */}
                     <View style={estilos.grupoMedia}>
                       <Text style={estilos.labelNota}>Méd.</Text>
                       <Text style={estilos.mediaTexto}>
@@ -268,7 +286,7 @@ export default function LancamentoNotasScreen() {
                       </Text>
                     </View>
 
-                    {/* Botão de confirmar: spinner individual enquanto salva este aluno */}
+                    {/* Botão de confirmar com spinner individual por aluno */}
                     <TouchableOpacity
                       style={[estilos.botaoSalvar, isSalvando && estilos.botaoSalvarDisabled]}
                       onPress={() => salvarAluno(item)}
@@ -299,8 +317,6 @@ const estilos = StyleSheet.create({
   cardDisciplina:      { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, marginBottom: theme.spacing.sm, borderLeftWidth: 4, borderLeftColor: theme.colors.primary, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardDiscTitulo:      { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
   cardDiscSub:         { fontSize: theme.font.sm, color: theme.colors.textSecondary, marginTop: 2 },
-  chipVoltar:          { alignSelf: 'flex-start', paddingHorizontal: theme.spacing.sm, paddingVertical: 4, backgroundColor: theme.colors.secondary, borderRadius: theme.radius.full, marginBottom: theme.spacing.md },
-  chipVoltarTexto:     { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
   cabecalho:           { backgroundColor: theme.colors.primary, borderRadius: theme.radius.md, padding: theme.spacing.md, marginBottom: theme.spacing.lg },
   cabecalhoTitulo:     { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.white },
   cabecalhoSub:        { fontSize: theme.font.sm, color: 'rgba(255,255,255,0.8)', marginTop: 4 },

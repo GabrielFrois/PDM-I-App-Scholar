@@ -1,17 +1,15 @@
-// Centraliza todas as chamadas HTTP para alunos, professores e disciplinas
-
 import type { AxiosError } from 'axios';
 import { api } from './api';
-
-// Tipos de payload enviados ao backend nos formulários de cadastro
 
 export type DadosAluno = {
   nome: string; matricula: string; curso: string; email: string;
   telefone: string; cep: string; endereco: string; cidade: string; estado: string;
+  senha?: string;
 };
 
 export type DadosProfessor = {
   nome: string; titulacao: string; areaAtuacao: string; tempoDocencia: string; email: string;
+  senha?: string;
 };
 
 export type DadosDisciplina = {
@@ -20,11 +18,10 @@ export type DadosDisciplina = {
   curso: string; semestre: string;
 };
 
-// Tipos de retorno da API nas listagens
-
 export type AlunoListagem = {
   id: number; nome: string; matricula: string; curso: string;
   email: string; cidade: string; estado: string;
+  telefone?: string; cep?: string; endereco?: string;
 };
 
 export type ProfessorListagem = {
@@ -38,13 +35,10 @@ export type DisciplinaListagem = {
   curso: string; semestre: string;
 };
 
-// Formato da resposta paginada retornada pelo backend
 export type RespostaPaginada<T> = {
   dados: T[]; total: number; pagina: number; limite: number;
 };
 
-// Extrai a mensagem de erro do campo `erro` da resposta do backend
-// Se não houver, usa mensagem genérica
 function extrairMensagemErro(err: unknown): string {
   const error = err as AxiosError<{ erro: string }>;
   return error.response?.data?.erro ?? 'Erro ao salvar. Tente novamente.';
@@ -52,7 +46,6 @@ function extrairMensagemErro(err: unknown): string {
 
 export const cadastroService = {
 
-  // Alunos
   salvarAluno: async (dados: DadosAluno) => {
     try { await api.post('/api/alunos', dados); }
     catch (err) { throw new Error(extrairMensagemErro(err)); }
@@ -68,15 +61,13 @@ export const cadastroService = {
     catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  // Busca um aluno específico pelo e-mail (usado pelo aluno ao abrir seu cadastro)
-  buscarAlunoPorEmail: async (email: string): Promise<(AlunoListagem & DadosAluno) | null> => {
+  buscarAlunoPorEmail: async (email: string): Promise<AlunoListagem | null> => {
     try {
-      const { data } = await api.get<(AlunoListagem & DadosAluno) | null>('/api/alunos', { params: { email } });
+      const { data } = await api.get<AlunoListagem | null>('/api/alunos', { params: { email } });
       return data;
     } catch { return null; }
   },
 
-  // Lista todos os alunos com limite alto para exibir tudo de uma vez na tela
   listarAlunos: async (pagina = 1, limite = 200): Promise<AlunoListagem[]> => {
     try {
       const { data } = await api.get<RespostaPaginada<AlunoListagem>>('/api/alunos', { params: { pagina, limite } });
@@ -84,7 +75,6 @@ export const cadastroService = {
     } catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  // Professores
   salvarProfessor: async (dados: DadosProfessor) => {
     try { await api.post('/api/professores', dados); }
     catch (err) { throw new Error(extrairMensagemErro(err)); }
@@ -100,7 +90,6 @@ export const cadastroService = {
     catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  // Busca professor pelo e-mail (usado pelo professor ao abrir seu cadastro)
   buscarProfessorPorEmail: async (email: string): Promise<ProfessorListagem | null> => {
     try {
       const { data } = await api.get<ProfessorListagem | null>('/api/professores', { params: { email } });
@@ -115,7 +104,6 @@ export const cadastroService = {
     } catch (err) { throw new Error(extrairMensagemErro(err)); }
   },
 
-  // Disciplinas
   salvarDisciplina: async (dados: DadosDisciplina) => {
     try { await api.post('/api/disciplinas', dados); }
     catch (err) { throw new Error(extrairMensagemErro(err)); }

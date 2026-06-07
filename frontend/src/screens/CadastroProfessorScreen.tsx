@@ -1,6 +1,6 @@
-// Mesma lógica da CadastroAlunoScreen, adaptada para professores
-// Admin: lista + formulário de criação/edição
-// Professor: abre direto no formulário com seus dados; nome e e-mail bloqueados
+// Tela de gerenciamento de professores
+//   admin: acessa a aba "Lista" (todos os professores) -> clica em um -> aba "Dados" (editar/remover)
+//   professor: cai direto na aba "Dados" com os próprios dados pré-preenchidos; nome e e-mail são somente-leitura
 
 import { useNavigation } from '@react-navigation/native';
 import { HeaderBackButton } from '@react-navigation/elements';
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
+import SelectField, { type OpcaoSelect } from '../components/SelectField';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormulario } from '../hooks/useFormulario';
 import { cadastroService, type DadosProfessor, type ProfessorListagem } from '../services/cadastroService';
@@ -20,11 +21,18 @@ import { theme } from '../styles/theme';
 type Aba = 'lista' | 'formulario';
 
 const VAZIO: DadosProfessor = {
-  nome: '', titulacao: '', areaAtuacao: '', tempoDocencia: '', email: '',
+  nome: '', titulacao: '', areaAtuacao: '', tempoDocencia: '', email: '', senha: '',
 };
 
-// Campos que o professor não pode editar (vinculados ao login institucional)
+// Campos que o próprio professor não pode alterar — apenas admin os modifica
 const BLOQUEADOS_PROFESSOR = ['nome', 'email'];
+
+const OPCOES_TITULACAO: OpcaoSelect[] = [
+  { label: 'Especialista', value: 'Especialista' },
+  { label: 'Mestre',       value: 'Mestre' },
+  { label: 'Doutor',       value: 'Doutor' },
+  { label: 'Pós-Doutor',   value: 'Pós-Doutor' },
+];
 
 export default function CadastroProfessorScreen() {
   const { user }    = useAuth();
@@ -50,6 +58,7 @@ export default function CadastroProfessorScreen() {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'E-mail inválido.';
         return '';
       },
+      senha: () => '',
     });
 
   const bloqueado = (campo: string) => ehProfessor && BLOQUEADOS_PROFESSOR.includes(campo);
@@ -60,7 +69,6 @@ export default function CadastroProfessorScreen() {
     setAba('lista');
   }, [resetar]);
 
-  // Personaliza o botão de voltar do header quando admin está no formulário
   useLayoutEffect(() => {
     if (ehProfessor) return;
     navegacao.setOptions({
@@ -73,9 +81,8 @@ export default function CadastroProfessorScreen() {
         />
       ),
     });
-  }, [aba, navegacao, voltarParaLista]);
+  }, [aba, navegacao, voltarParaLista, ehProfessor]);
 
-  // Professor: ao montar, busca seus dados pelo e-mail do token
   useEffect(() => {
     if (!ehProfessor || !user?.email) return;
     (async () => {
@@ -89,21 +96,22 @@ export default function CadastroProfessorScreen() {
             areaAtuacao:   prof.area           ?? '',
             tempoDocencia: String(prof.tempo_docencia ?? ''),
             email:         prof.email          ?? '',
+            senha:         '',
           });
         }
-      } catch { /* silencioso */ }
+      } catch { }
       finally { setCarregando(false); }
     })();
-  }, []);
+  }, [ehProfessor, user?.email]);
 
   const carregarLista = useCallback(async () => {
     setCarregandoLista(true);
     try { setProfessores(await cadastroService.listarProfessores()); }
-    catch { /* silencioso */ }
+    catch { }
     finally { setCarregandoLista(false); }
   }, []);
 
-  useEffect(() => { if (!ehProfessor) carregarLista(); }, []);
+  useEffect(() => { if (!ehProfessor) carregarLista(); }, [ehProfessor, carregarLista]);
 
   const abrirEdicao = (prof: ProfessorListagem) => {
     setProfessorId(prof.id);
@@ -113,6 +121,7 @@ export default function CadastroProfessorScreen() {
       areaAtuacao:   prof.area           ?? '',
       tempoDocencia: String(prof.tempo_docencia ?? ''),
       email:         prof.email          ?? '',
+      senha:         '',
     });
     setAba('formulario');
   };
@@ -129,6 +138,13 @@ export default function CadastroProfessorScreen() {
 
   const handleSalvar = async () => {
     if (!validar()) return;
+    if (!ehProfessor && !professorId) {
+      const s = (formulario.senha ?? '').trim();
+      if (s.length < 6) {
+        Alert.alert('Senha inválida', 'Informe uma senha inicial com pelo menos 6 caracteres.');
+        return;
+      }
+    }
     setLoading(true);
     try {
       if (professorId) {
@@ -157,7 +173,6 @@ export default function CadastroProfessorScreen() {
     );
   }
 
-  // Visão de lista (admin)
   if (aba === 'lista') {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -202,7 +217,6 @@ export default function CadastroProfessorScreen() {
     );
   }
 
-  // Visão de formulário
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
@@ -221,8 +235,12 @@ export default function CadastroProfessorScreen() {
           value={formulario.nome} onChangeText={(v) => atualizarCampo('nome', v)}
           error={erros.nome} editable={!bloqueado('nome')} />
 
-        <InputField label="Titulação *" placeholder="Ex: Doutor, Mestre, Especialista"
-          value={formulario.titulacao} onChangeText={(v) => atualizarCampo('titulacao', v)}
+        <SelectField label="Titulação *"
+          placeholder="Selecione a titulação"
+          opcoes={OPCOES_TITULACAO}
+          valor={formulario.titulacao}
+          onChange={(v) => atualizarCampo('titulacao', v)}
+          disabled={bloqueado('titulacao')}
           error={erros.titulacao} />
 
         <InputField label="Área de atuação *" placeholder="Ex: Engenharia de Software"
@@ -238,6 +256,13 @@ export default function CadastroProfessorScreen() {
           keyboardType="email-address" autoCapitalize="none"
           error={erros.email} editable={!bloqueado('email')} />
 
+        {!ehProfessor && !professorId && (
+          <InputField label="Senha inicial *" placeholder="Mínimo 6 caracteres"
+            value={formulario.senha ?? ''} onChangeText={(v) => atualizarCampo('senha', v)}
+            secureTextEntry error={erros.senha}
+            hint="O professor usará esta senha para fazer login pela primeira vez." />
+        )}
+
         <PrimaryButton
           title={professorId ? 'Salvar alterações' : 'Cadastrar Professor'}
           onPress={handleSalvar} loading={loading} />
@@ -251,30 +276,28 @@ export default function CadastroProfessorScreen() {
 }
 
 const estilos = StyleSheet.create({
-  safeArea:         { flex: 1, backgroundColor: theme.colors.background },
-  scroll:           { flex: 1 },
-  conteudo:         { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  centro:           { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md },
-  textoCarga:       { fontSize: theme.font.md, color: theme.colors.textSecondary },
-  textoVazio:       { fontSize: theme.font.md, color: theme.colors.textSecondary },
-  listaContainer:   { flex: 1 },
-  listaHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  listaTitle:       { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
-  listaScroll:      { padding: theme.spacing.lg, gap: theme.spacing.sm },
-  botaoNovo:        { backgroundColor: theme.colors.primary, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs + 2, borderRadius: theme.radius.full },
-  botaoNovoTexto:   { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
-  botaoHeader:      { paddingHorizontal: theme.spacing.sm, paddingVertical: 4 },
-  botaoHeaderTexto: { color: theme.colors.white, fontSize: theme.font.md, fontWeight: '600' },
-  card:             { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  cardInfo:         { gap: 3, marginBottom: theme.spacing.sm },
-  cardNome:         { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
-  cardSub:          { fontSize: theme.font.sm, color: theme.colors.textSecondary },
-  cardAcoes:        { flexDirection: 'row', gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.sm },
-  btnEditar:        { flex: 1, backgroundColor: theme.colors.secondary, paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
-  btnEditarTexto:   { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
-  btnRemover:       { flex: 1, backgroundColor: '#FCE8E6', paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
-  btnRemoverTexto:  { fontSize: theme.font.sm, color: theme.colors.danger, fontWeight: '600' },
-  aviso:            { backgroundColor: '#E8F0FE', borderRadius: theme.radius.sm, padding: theme.spacing.sm, marginBottom: theme.spacing.md },
-  avisoTexto:       { fontSize: theme.font.sm, color: theme.colors.primary },
-  secaoTitulo:      { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
+  safeArea:       { flex: 1, backgroundColor: theme.colors.background },
+  scroll:         { flex: 1 },
+  conteudo:       { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  centro:         { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.md },
+  textoCarga:     { fontSize: theme.font.md, color: theme.colors.textSecondary },
+  textoVazio:     { fontSize: theme.font.md, color: theme.colors.textSecondary },
+  listaContainer: { flex: 1 },
+  listaHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  listaTitle:     { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
+  listaScroll:    { padding: theme.spacing.lg, gap: theme.spacing.sm },
+  botaoNovo:      { backgroundColor: theme.colors.primary, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs + 2, borderRadius: theme.radius.full },
+  botaoNovoTexto: { color: theme.colors.white, fontWeight: '700', fontSize: theme.font.sm },
+  card:           { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  cardInfo:       { gap: 3, marginBottom: theme.spacing.sm },
+  cardNome:       { fontSize: theme.font.md, fontWeight: '700', color: theme.colors.text },
+  cardSub:        { fontSize: theme.font.sm, color: theme.colors.textSecondary },
+  cardAcoes:      { flexDirection: 'row', gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: theme.spacing.sm },
+  btnEditar:      { flex: 1, backgroundColor: theme.colors.secondary, paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
+  btnEditarTexto: { fontSize: theme.font.sm, color: theme.colors.primary, fontWeight: '600' },
+  btnRemover:     { flex: 1, backgroundColor: '#FCE8E6', paddingVertical: 8, borderRadius: theme.radius.sm, alignItems: 'center' },
+  btnRemoverTexto:{ fontSize: theme.font.sm, color: theme.colors.danger, fontWeight: '600' },
+  aviso:          { backgroundColor: '#E8F0FE', borderRadius: theme.radius.sm, padding: theme.spacing.sm, marginBottom: theme.spacing.md },
+  avisoTexto:     { fontSize: theme.font.sm, color: theme.colors.primary },
+  secaoTitulo:    { fontSize: theme.font.lg, fontWeight: '700', color: theme.colors.text, marginBottom: theme.spacing.md },
 });

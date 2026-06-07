@@ -1,3 +1,9 @@
+// Cadastro, listagem, edição e remoção (soft delete)
+// Regras de acesso (definidas nas rotas):
+//   - cadastrar / atualizar / remover: somente admin
+//   - listar: admin, professor e aluno
+// O campo professor_id é opcional — uma disciplina pode existir sem professor responsável ainda atribuído
+
 const Disciplina = require('../models/Disciplina');
 const Professor  = require('../models/Professor');
 
