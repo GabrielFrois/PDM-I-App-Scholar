@@ -231,7 +231,7 @@ export default function CadastroProfessorScreen() {
 
         <Text style={estilos.secaoTitulo}>Dados do Professor</Text>
 
-        <InputField label="Nome completo *" placeholder="Ex: André Olímpio"
+        <InputField label="Nome completo *" placeholder="Ex: José Silva"
           value={formulario.nome} onChangeText={(v) => atualizarCampo('nome', v)}
           error={erros.nome} editable={!bloqueado('nome')} />
 
@@ -257,10 +257,9 @@ export default function CadastroProfessorScreen() {
           error={erros.email} editable={!bloqueado('email')} />
 
         {!ehProfessor && !professorId && (
-          <InputField label="Senha inicial *" placeholder="Mínimo 6 caracteres"
+          <InputField label="Senha *" placeholder="Mínimo 6 caracteres"
             value={formulario.senha ?? ''} onChangeText={(v) => atualizarCampo('senha', v)}
-            secureTextEntry error={erros.senha}
-            hint="O professor usará esta senha para fazer login pela primeira vez." />
+            secureTextEntry error={erros.senha} />
         )}
 
         <PrimaryButton
