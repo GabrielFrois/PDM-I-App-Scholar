@@ -12,6 +12,7 @@ const disciplinasController = require('../controllers/disciplinasController');
 const boletimController     = require('../controllers/boletimController');
 const notasController       = require('../controllers/notasController');
 const matriculasController  = require('../controllers/matriculasController');
+const cursosController      = require('../controllers/cursosController'); 
 
 // Rota pública: faz login e devolve o token JWT
 router.post('/login', authController.login);
@@ -42,6 +43,15 @@ router.post('/disciplinas',       autenticar, autorizar('admin'),              d
 router.get('/disciplinas',        autenticar, autorizar('admin', 'professor'), disciplinasController.listar);
 router.put('/disciplinas/:id',    autenticar, autorizar('admin'),              disciplinasController.atualizar);
 router.delete('/disciplinas/:id', autenticar, autorizar('admin'),              disciplinasController.remover);
+
+// Rotas de cursos
+// Cadastrar / atualizar / remover: somente admin
+// Listar: admin e professor (para o dropdown de seleção de curso)
+router.post('/cursos',       autenticar, autorizar('admin'),              cursosController.cadastrar);
+router.get('/cursos',        autenticar, autorizar('admin', 'professor', 'aluno'), cursosController.listar);
+router.put('/cursos/:id',    autenticar, autorizar('admin'),              cursosController.atualizar);
+router.delete('/cursos/:id', autenticar, autorizar('admin'),              cursosController.remover);
+
 
 // Rotas de matrículas (acesso restrito ao admin)
 // GET    /matriculas/:alunoId        -> disciplinas do aluno + ids marcados

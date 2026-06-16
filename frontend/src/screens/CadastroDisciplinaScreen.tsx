@@ -14,18 +14,23 @@ import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import SelectField, { type OpcaoSelect } from '../components/SelectField';
 import { useFormulario } from '../hooks/useFormulario';
-import { cadastroService, type DisciplinaListagem, type ProfessorListagem } from '../services/cadastroService';
+import {
+  cadastroService,
+  type CursoSimples,
+  type DisciplinaListagem,
+  type ProfessorListagem,
+} from '../services/cadastroService';
 import { theme } from '../styles/theme';
 
 type Aba = 'lista' | 'formulario';
 
 type FormDisciplina = {
   nomeDisciplina: string; cargaHoraria: string;
-  professorId: string; curso: string; semestre: string;
+  professorId: string; cursoId: string; semestre: string;
 };
 
 const VAZIO: FormDisciplina = {
-  nomeDisciplina: '', cargaHoraria: '', professorId: '', curso: '', semestre: '',
+  nomeDisciplina: '', cargaHoraria: '', professorId: '', cursoId: '', semestre: '',
 };
 
 const OPCOES_SEMESTRE: OpcaoSelect[] = [
@@ -40,19 +45,22 @@ const OPCOES_SEMESTRE: OpcaoSelect[] = [
 export default function CadastroDisciplinaScreen() {
   const navegacao = useNavigation();
 
-  const [aba, setAba]                   = useState<Aba>('lista');
-  const [loading, setLoading]           = useState(false);
+  const [aba,          setAba]          = useState<Aba>('lista');
+  const [loading,      setLoading]      = useState(false);
   const [disciplinaId, setDisciplinaId] = useState<number | null>(null);
+
   const [disciplinas,     setDisciplinas]     = useState<DisciplinaListagem[]>([]);
   const [carregandoLista, setCarregandoLista] = useState(false);
   const [professores,     setProfessores]     = useState<ProfessorListagem[]>([]);
   const [carregandoProfs, setCarregandoProfs] = useState(false);
+  const [cursos,          setCursos]          = useState<CursoSimples[]>([]);
+  const [carregandoCursos,setCarregandoCursos]= useState(false);
 
   const { formulario, erros, atualizarCampo, validar, resetar, preencherFormulario } =
     useFormulario(VAZIO, {
       nomeDisciplina: (v) => !v.trim() ? 'Nome da disciplina é obrigatório.' : '',
       cargaHoraria:   (v) => !v.trim() ? 'Carga horária é obrigatória.'      : '',
-      curso:          (v) => !v.trim() ? 'Curso é obrigatório.'               : '',
+      cursoId:        (v) => !v.trim() ? 'Curso é obrigatório.'               : '',
       semestre:       (v) => !v.trim() ? 'Semestre é obrigatório.'            : '',
       professorId:    () => '',
     });
@@ -62,7 +70,14 @@ export default function CadastroDisciplinaScreen() {
     ...professores.map((p) => ({ label: `${p.nome} (${p.titulacao})`, value: String(p.id) })),
   ];
 
-  const voltarParaLista = useCallback(() => { setDisciplinaId(null); resetar(); setAba('lista'); }, [resetar]);
+  const opcoesCursos: OpcaoSelect[] = [
+    { label: 'Sem curso vinculado', value: '' },
+    ...cursos.map((c) => ({ label: c.nome, value: String(c.id) })),
+  ];
+
+  const voltarParaLista = useCallback(() => {
+    setDisciplinaId(null); resetar(); setAba('lista');
+  }, [resetar]);
 
   useLayoutEffect(() => {
     navegacao.setOptions({
@@ -88,16 +103,26 @@ export default function CadastroDisciplinaScreen() {
     catch { } finally { setCarregandoProfs(false); }
   }, []);
 
-  useEffect(() => { carregarLista(); carregarProfessores(); }, [carregarLista, carregarProfessores]);
+  const carregarCursos = useCallback(async () => {
+    setCarregandoCursos(true);
+    try { setCursos(await cadastroService.listarCursosSimples()); }
+    catch { } finally { setCarregandoCursos(false); }
+  }, []);
+
+  useEffect(() => {
+    carregarLista();
+    carregarProfessores();
+    carregarCursos();
+  }, [carregarLista, carregarProfessores, carregarCursos]);
 
   const abrirEdicao = (disc: DisciplinaListagem) => {
     setDisciplinaId(disc.id);
     preencherFormulario({
-      nomeDisciplina: disc.nome ?? '',
+      nomeDisciplina: disc.nome          ?? '',
       cargaHoraria:   String(disc.carga_horaria ?? ''),
-      professorId:    disc.professor_id != null ? String(disc.professor_id) : '',
-      curso:          disc.curso ?? '',
-      semestre:       disc.semestre ?? '',
+      professorId:    disc.professor_id  != null ? String(disc.professor_id) : '',
+      cursoId:        disc.curso_id      != null ? String(disc.curso_id)     : '',
+      semestre:       disc.semestre      ?? '',
     });
     setAba('formulario');
   };
@@ -156,7 +181,7 @@ export default function CadastroDisciplinaScreen() {
                     <Text style={estilos.cardNome} numberOfLines={1}>{disc.nome}</Text>
                     <Text style={estilos.cardSub}>{disc.carga_horaria}h · {disc.semestre}</Text>
                     <Text style={estilos.cardSub} numberOfLines={1}>{disc.professor ?? 'Sem professor'}</Text>
-                    <Text style={estilos.cardSub}>{disc.curso}</Text>
+                    <Text style={estilos.cardSub}>{disc.curso ?? 'Sem curso'}</Text>
                   </View>
                   <View style={estilos.cardAcoes}>
                     <TouchableOpacity style={estilos.btnEditar} onPress={() => abrirEdicao(disc)}>
@@ -197,9 +222,11 @@ export default function CadastroDisciplinaScreen() {
           value={formulario.cargaHoraria} onChangeText={(v) => atualizarCampo('cargaHoraria', v)}
           keyboardType="numeric" error={erros.cargaHoraria} />
 
-        <InputField label="Curso *" placeholder="Ex: Desenvolvimento de Software"
-          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)}
-          error={erros.curso} />
+        <SelectField label="Curso *"
+          placeholder={carregandoCursos ? 'Carregando cursos...' : 'Selecione o curso'}
+          opcoes={opcoesCursos} valor={formulario.cursoId}
+          onChange={(v) => atualizarCampo('cursoId', v)}
+          disabled={carregandoCursos} error={erros.cursoId} />
 
         <SelectField label="Semestre *"
           placeholder="Selecione o semestre"

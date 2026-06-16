@@ -13,15 +13,12 @@ const client = new Client({
   password: process.env.DB_PASSWORD || '123456',
 });
 
-// Converte um nome completo para e-mail institucional
-// Ex: "Ana Clara" -> "ana.clara@fatec.sp.gov.br"
-// normalize('NFD') + replace remove acentos (ã -> a, é -> e etc.)
 function nomeParaEmail(nome) {
   return nome
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/\s+/g, '.')            // todos os espaços viram pontos
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '.')
     + '@fatec.sp.gov.br';
 }
 
@@ -30,97 +27,81 @@ async function seed() {
     await client.connect();
     console.log('[seed] Conectado ao PostgreSQL.');
 
-    // Usa transação para garantir que tudo é inserido ou nada
     await client.query('BEGIN');
 
-    // Limpa dados anteriores na ordem correta (respeitando as FKs)
     await client.query('DELETE FROM notas');
+    await client.query('DELETE FROM matriculas');
     await client.query('DELETE FROM disciplinas');
     await client.query('DELETE FROM alunos');
+    await client.query('DELETE FROM cursos');
     await client.query('DELETE FROM professores');
     await client.query('DELETE FROM usuarios');
     console.log('[seed] Dados antigos removidos.');
 
-    // Gera um único hash de senha para todos (senha padrão: 123456)
-    // O "10" é o custo do bcrypt (número de rounds de hashing)
     const senhaHash = await bcrypt.hash('123456', 10);
-
-    const CURSO = 'Desenvolvimento de Software Multiplataforma';
 
     // Professores
     const professoresData = [
-      { nome: 'Luciano Silva',     titulacao: 'Mestre',       area: 'Engenharia de Software',      tempo_docencia: 8,  email: 'luciano.silva@fatec.sp.gov.br'     },
-      { nome: 'Camila Fernandes',  titulacao: 'Doutora',      area: 'Banco de Dados',              tempo_docencia: 12, email: 'camila.fernandes@fatec.sp.gov.br'  },
-      { nome: 'Roberto Almeida',   titulacao: 'Mestre',       area: 'Redes e Sistemas',            tempo_docencia: 5,  email: 'roberto.almeida@fatec.sp.gov.br'   },
-      { nome: 'Marcos Costa',      titulacao: 'Mestre',       area: 'Sistemas Embarcados',         tempo_docencia: 7,  email: 'marcos.costa@fatec.sp.gov.br'      },
-      { nome: 'Fernanda Lima',     titulacao: 'Especialista', area: 'Matematica Aplicada',         tempo_docencia: 4,  email: 'fernanda.lima@fatec.sp.gov.br'     },
-      { nome: 'Patricia Mendes',   titulacao: 'Doutora',      area: 'Inteligencia Artificial',     tempo_docencia: 9,  email: 'patricia.mendes@fatec.sp.gov.br'   },
-      { nome: 'Andre Oliveira',    titulacao: 'Mestre',       area: 'Arquitetura de Software',     tempo_docencia: 6,  email: 'andre.oliveira@fatec.sp.gov.br'    },
-      { nome: 'Renata Souza',      titulacao: 'Especialista', area: 'Gestao de Projetos',          tempo_docencia: 3,  email: 'renata.souza@fatec.sp.gov.br'      },
-      { nome: 'Felipe Castro',     titulacao: 'Mestre',       area: 'Seguranca da Informacao',     tempo_docencia: 10, email: 'felipe.castro@fatec.sp.gov.br'     },
-      { nome: 'Beatriz Rocha',     titulacao: 'Doutora',      area: 'Computacao em Nuvem',         tempo_docencia: 8,  email: 'beatriz.rocha@fatec.sp.gov.br'     },
+      { nome: 'Luciano Silva',    titulacao: 'Mestre',       area: 'Engenharia de Software',  tempo_docencia: 8,  email: 'luciano.silva@fatec.sp.gov.br'    },
+      { nome: 'Camila Fernandes', titulacao: 'Doutora',      area: 'Banco de Dados',          tempo_docencia: 12, email: 'camila.fernandes@fatec.sp.gov.br' },
+      { nome: 'Roberto Almeida',  titulacao: 'Mestre',       area: 'Redes e Sistemas',        tempo_docencia: 5,  email: 'roberto.almeida@fatec.sp.gov.br'  },
+      { nome: 'Marcos Costa',     titulacao: 'Mestre',       area: 'Sistemas Embarcados',     tempo_docencia: 7,  email: 'marcos.costa@fatec.sp.gov.br'     },
+      { nome: 'Fernanda Lima',    titulacao: 'Especialista', area: 'Matematica Aplicada',     tempo_docencia: 4,  email: 'fernanda.lima@fatec.sp.gov.br'    },
+      { nome: 'Patricia Mendes',  titulacao: 'Doutora',      area: 'Inteligencia Artificial', tempo_docencia: 9,  email: 'patricia.mendes@fatec.sp.gov.br'  },
+      { nome: 'Andre Oliveira',   titulacao: 'Mestre',       area: 'Arquitetura de Software', tempo_docencia: 6,  email: 'andre.oliveira@fatec.sp.gov.br'   },
+      { nome: 'Renata Souza',     titulacao: 'Especialista', area: 'Gestao de Projetos',      tempo_docencia: 3,  email: 'renata.souza@fatec.sp.gov.br'     },
+      { nome: 'Felipe Castro',    titulacao: 'Mestre',       area: 'Seguranca da Informacao', tempo_docencia: 10, email: 'felipe.castro@fatec.sp.gov.br'    },
+      { nome: 'Beatriz Rocha',    titulacao: 'Doutora',      area: 'Computacao em Nuvem',     tempo_docencia: 8,  email: 'beatriz.rocha@fatec.sp.gov.br'    },
     ];
 
-    // Disciplinas por semestre
-    // 2-3 disciplinas por semestre, distribuídas entre os professores
+    // Disciplinas
+    // Sem o campo "curso" — a FK curso_id será preenchida após inserir o curso
     const disciplinas = [
       // 1º Semestre
-      { nome: 'Logica de Programacao',              carga_horaria: 80, professor: 'Luciano Silva',    curso: CURSO, semestre: '1º Semestre' },
-      { nome: 'Fundamentos de Redes',               carga_horaria: 60, professor: 'Roberto Almeida',  curso: CURSO, semestre: '1º Semestre' },
-      { nome: 'Matematica Discreta',                carga_horaria: 60, professor: 'Fernanda Lima',    curso: CURSO, semestre: '1º Semestre' },
-
+      { nome: 'Logica de Programacao',               carga_horaria: 80, professor: 'Luciano Silva',    semestre: '1º Semestre' },
+      { nome: 'Fundamentos de Redes',                carga_horaria: 60, professor: 'Roberto Almeida',  semestre: '1º Semestre' },
+      { nome: 'Matematica Discreta',                 carga_horaria: 60, professor: 'Fernanda Lima',    semestre: '1º Semestre' },
       // 2º Semestre
-      { nome: 'Programacao Orientada a Objetos',    carga_horaria: 80, professor: 'Luciano Silva',    curso: CURSO, semestre: '2º Semestre' },
-      { nome: 'Banco de Dados I',                   carga_horaria: 80, professor: 'Camila Fernandes', curso: CURSO, semestre: '2º Semestre' },
-      { nome: 'Calculo Aplicado',                   carga_horaria: 60, professor: 'Fernanda Lima',    curso: CURSO, semestre: '2º Semestre' },
-
+      { nome: 'Programacao Orientada a Objetos',     carga_horaria: 80, professor: 'Luciano Silva',    semestre: '2º Semestre' },
+      { nome: 'Banco de Dados I',                    carga_horaria: 80, professor: 'Camila Fernandes', semestre: '2º Semestre' },
+      { nome: 'Calculo Aplicado',                    carga_horaria: 60, professor: 'Fernanda Lima',    semestre: '2º Semestre' },
       // 3º Semestre
-      { nome: 'Estrutura de Dados',                 carga_horaria: 80, professor: 'Andre Oliveira',   curso: CURSO, semestre: '3º Semestre' },
-      { nome: 'Banco de Dados II',                  carga_horaria: 80, professor: 'Camila Fernandes', curso: CURSO, semestre: '3º Semestre' },
-      { nome: 'Engenharia de Software',             carga_horaria: 60, professor: 'Renata Souza',     curso: CURSO, semestre: '3º Semestre' },
-
+      { nome: 'Estrutura de Dados',                  carga_horaria: 80, professor: 'Andre Oliveira',   semestre: '3º Semestre' },
+      { nome: 'Banco de Dados II',                   carga_horaria: 80, professor: 'Camila Fernandes', semestre: '3º Semestre' },
+      { nome: 'Engenharia de Software',              carga_horaria: 60, professor: 'Renata Souza',     semestre: '3º Semestre' },
       // 4º Semestre
-      { nome: 'Programacao para Dispositivos Moveis I', carga_horaria: 80, professor: 'Luciano Silva',    curso: CURSO, semestre: '4º Semestre' },
-      { nome: 'Banco de Dados Relacional',              carga_horaria: 80, professor: 'Camila Fernandes', curso: CURSO, semestre: '4º Semestre' },
-      { nome: 'Programacao Web',                        carga_horaria: 80, professor: 'Roberto Almeida',  curso: CURSO, semestre: '4º Semestre' },
-      { nome: 'Internet das Coisas',                    carga_horaria: 60, professor: 'Marcos Costa',     curso: CURSO, semestre: '4º Semestre' },
-      { nome: 'Estatistica Aplicada',                   carga_horaria: 60, professor: 'Fernanda Lima',    curso: CURSO, semestre: '4º Semestre' },
-
+      { nome: 'Programacao para Dispositivos Moveis I',  carga_horaria: 80, professor: 'Luciano Silva',    semestre: '4º Semestre' },
+      { nome: 'Banco de Dados Relacional',               carga_horaria: 80, professor: 'Camila Fernandes', semestre: '4º Semestre' },
+      { nome: 'Programacao Web',                         carga_horaria: 80, professor: 'Roberto Almeida',  semestre: '4º Semestre' },
+      { nome: 'Internet das Coisas',                     carga_horaria: 60, professor: 'Marcos Costa',     semestre: '4º Semestre' },
+      { nome: 'Estatistica Aplicada',                    carga_horaria: 60, professor: 'Fernanda Lima',    semestre: '4º Semestre' },
       // 5º Semestre
-      { nome: 'Programacao para Dispositivos Moveis II', carga_horaria: 80, professor: 'Luciano Silva',   curso: CURSO, semestre: '5º Semestre' },
-      { nome: 'Inteligencia Artificial',                 carga_horaria: 80, professor: 'Patricia Mendes', curso: CURSO, semestre: '5º Semestre' },
-      { nome: 'Seguranca da Informacao',                 carga_horaria: 60, professor: 'Felipe Castro',   curso: CURSO, semestre: '5º Semestre' },
-
+      { nome: 'Programacao para Dispositivos Moveis II', carga_horaria: 80, professor: 'Luciano Silva',   semestre: '5º Semestre' },
+      { nome: 'Inteligencia Artificial',                 carga_horaria: 80, professor: 'Patricia Mendes', semestre: '5º Semestre' },
+      { nome: 'Seguranca da Informacao',                 carga_horaria: 60, professor: 'Felipe Castro',   semestre: '5º Semestre' },
       // 6º Semestre
-      { nome: 'Computacao em Nuvem',                carga_horaria: 80, professor: 'Beatriz Rocha',    curso: CURSO, semestre: '6º Semestre' },
-      { nome: 'Gestao de Projetos de Software',     carga_horaria: 60, professor: 'Renata Souza',     curso: CURSO, semestre: '6º Semestre' },
-      { nome: 'Trabalho de Conclusao de Curso',     carga_horaria: 80, professor: 'Andre Oliveira',   curso: CURSO, semestre: '6º Semestre' },
+      { nome: 'Computacao em Nuvem',              carga_horaria: 80, professor: 'Beatriz Rocha',  semestre: '6º Semestre' },
+      { nome: 'Gestao de Projetos de Software',   carga_horaria: 60, professor: 'Renata Souza',   semestre: '6º Semestre' },
+      { nome: 'Trabalho de Conclusao de Curso',   carga_horaria: 80, professor: 'Andre Oliveira', semestre: '6º Semestre' },
     ];
 
-    // Alunos agrupados por semestre (2-3 por semestre = 15 alunos)
-    // Índices 0-1: 1º sem | 2-4: 2º sem | 5-6: 3º sem | 7-9: 4º sem | 10-11: 5º sem | 12-14: 6º sem
+    // Alunos
     const alunosPorSemestre = [
-      // 1º Semestre - 2 alunos
-      { nome: 'Ana Clara',        semIdx: 0 },
-      { nome: 'Bruno Souza',      semIdx: 0 },
-      // 2º Semestre - 3 alunos
-      { nome: 'Carlos Eduardo',   semIdx: 1 },
-      { nome: 'Daniela Rocha',    semIdx: 1 },
-      { nome: 'Eduardo Lima',     semIdx: 1 },
-      // 3º Semestre - 2 alunos
-      { nome: 'Fernanda Alves',   semIdx: 2 },
-      { nome: 'Gabriel Martins',  semIdx: 2 },
-      // 4º Semestre - 3 alunos
-      { nome: 'Helena Costa',     semIdx: 3 },
-      { nome: 'Igor Santos',      semIdx: 3 },
-      { nome: 'Juliana Pereira',  semIdx: 3 },
-      // 5º Semestre - 2 alunos
-      { nome: 'Lucas Carvalho',   semIdx: 4 },
-      { nome: 'Mariana Ribeiro',  semIdx: 4 },
-      // 6º Semestre - 3 alunos
-      { nome: 'Nicolas Gomes',    semIdx: 5 },
-      { nome: 'Olivia Ferreira',  semIdx: 5 },
-      { nome: 'Pedro Henrique',   semIdx: 5 },
+      { nome: 'Ana Clara',       semIdx: 0 },
+      { nome: 'Bruno Souza',     semIdx: 0 },
+      { nome: 'Carlos Eduardo',  semIdx: 1 },
+      { nome: 'Daniela Rocha',   semIdx: 1 },
+      { nome: 'Eduardo Lima',    semIdx: 1 },
+      { nome: 'Fernanda Alves',  semIdx: 2 },
+      { nome: 'Gabriel Martins', semIdx: 2 },
+      { nome: 'Helena Costa',    semIdx: 3 },
+      { nome: 'Igor Santos',     semIdx: 3 },
+      { nome: 'Juliana Pereira', semIdx: 3 },
+      { nome: 'Lucas Carvalho',  semIdx: 4 },
+      { nome: 'Mariana Ribeiro', semIdx: 4 },
+      { nome: 'Nicolas Gomes',   semIdx: 5 },
+      { nome: 'Olivia Ferreira', semIdx: 5 },
+      { nome: 'Pedro Henrique',  semIdx: 5 },
     ];
 
     const semestres = [
@@ -132,7 +113,6 @@ async function seed() {
       nome:      a.nome,
       semIdx:    a.semIdx,
       matricula: `2026${String(index + 1).padStart(3, '0')}`,
-      curso:     CURSO,
       email:     nomeParaEmail(a.nome),
       telefone:  `(12) 99999-${String(index + 1).padStart(4, '0')}`,
       cep:       '12245-000',
@@ -167,35 +147,45 @@ async function seed() {
     }
     console.log(`[seed] ${professoresData.length} professores inseridos.`);
 
+    // Inserção do curso 
+    const NOME_CURSO = 'Desenvolvimento de Software Multiplataforma';
+    const cursoRes = await client.query(
+      `INSERT INTO cursos (nome, area, duracao_sem, coordenador_id)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [NOME_CURSO, 'Tecnologia da Informação', 6, professorIds['Luciano Silva']]
+    );
+    const cursoId = cursoRes.rows[0].id;
+    console.log(`[seed] Curso '${NOME_CURSO}' inserido (id=${cursoId}, coordenador: Luciano Silva).`);
+
     // Inserção de disciplinas
+    // Usa cursoId (FK) em vez do texto do nome do curso
     const disciplinaIds = {};
     for (const d of disciplinas) {
       const res = await client.query(
-        'INSERT INTO disciplinas (nome, carga_horaria, professor_id, curso, semestre) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [d.nome, d.carga_horaria, professorIds[d.professor], d.curso, d.semestre]
+        `INSERT INTO disciplinas (nome, carga_horaria, professor_id, curso_id, semestre)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [d.nome, d.carga_horaria, professorIds[d.professor], cursoId, d.semestre]
       );
       disciplinaIds[d.nome] = res.rows[0].id;
     }
     console.log(`[seed] ${disciplinas.length} disciplinas inseridas.`);
 
     // Inserção de alunos
-    const alunoIds = []; // [{ id, semIdx }]
+    const alunoIds = [];
     for (const a of alunosData) {
       const res = await client.query(
-        `INSERT INTO alunos (nome, matricula, curso, email, telefone, cep, endereco, cidade, estado)
+        `INSERT INTO alunos (nome, matricula, curso_id, email, telefone, cep, endereco, cidade, estado)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-        [a.nome, a.matricula, a.curso, a.email, a.telefone, a.cep, a.endereco, a.cidade, a.estado]
+        [a.nome, a.matricula, cursoId, a.email, a.telefone, a.cep, a.endereco, a.cidade, a.estado]
       );
       alunoIds.push({ id: res.rows[0].id, semIdx: a.semIdx });
     }
     console.log(`[seed] ${alunoIds.length} alunos inseridos.`);
 
     // Inserção de notas
-    // Cada aluno recebe notas apenas nas disciplinas do seu semestre
-    // Math.random() * 5 + 5 -> nota entre 5.0 e 10.0
     let notasInseridas = 0;
     for (const { id: alunoId, semIdx } of alunoIds) {
-      const semestreDoAluno = semestres[semIdx];
+      const semestreDoAluno    = semestres[semIdx];
       const disciplinasDoAluno = disciplinas.filter(d => d.semestre === semestreDoAluno);
       for (const d of disciplinasDoAluno) {
         const nota1 = parseFloat((Math.random() * 5 + 5).toFixed(1));
@@ -209,12 +199,10 @@ async function seed() {
     }
     console.log(`[seed] ${notasInseridas} notas inseridas.`);
 
-
     // Inserção de matrículas
-    // Cada aluno é matriculado nas disciplinas do seu semestre
     let matriculasInseridas = 0;
     for (const { id: alunoId, semIdx } of alunoIds) {
-      const semestreDoAluno = semestres[semIdx];
+      const semestreDoAluno    = semestres[semIdx];
       const disciplinasDoAluno = disciplinas.filter(d => d.semestre === semestreDoAluno);
       for (const d of disciplinasDoAluno) {
         await client.query(
@@ -226,7 +214,6 @@ async function seed() {
     }
     console.log(`[seed] ${matriculasInseridas} matrículas inseridas.`);
 
-    // Confirma todas as inserções de uma vez
     await client.query('COMMIT');
     console.log('[seed] Concluido com sucesso!');
     console.log('---');
@@ -245,7 +232,6 @@ async function seed() {
     }
 
   } catch (err) {
-    // Se qualquer inserção falhar, desfaz tudo para não deixar o banco pela metade
     await client.query('ROLLBACK');
     console.error('[seed] Erro durante a execucao:', err.message);
     process.exit(1);

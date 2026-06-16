@@ -1,30 +1,37 @@
-// Cadastro, listagem, edição e remoção (soft delete)
+// Cadastro, listagem, edição e remoção (soft delete) de disciplinas.
 // Regras de acesso (definidas nas rotas):
 //   - cadastrar / atualizar / remover: somente admin
-//   - listar: admin, professor e aluno
-// O campo professor_id é opcional — uma disciplina pode existir sem professor responsável ainda atribuído
+//   - listar: admin e professor
 
 const Disciplina = require('../models/Disciplina');
 const Professor  = require('../models/Professor');
+const Curso      = require('../models/Curso');
 
-// POST /api/disciplinas - somente admin
+// POST /api/disciplinas
 async function cadastrar(req, res) {
-  const { nomeDisciplina, cargaHoraria, professorId, curso, semestre } = req.body;
+  const { nomeDisciplina, cargaHoraria, professorId, cursoId, semestre } = req.body;
 
-  if (!nomeDisciplina || !cargaHoraria || !curso || !semestre) {
-    return res.status(400).json({ erro: 'Nome, carga horária, curso e semestre são obrigatórios.' });
+  if (!nomeDisciplina || !cargaHoraria || !semestre) {
+    return res.status(400).json({ erro: 'Nome, carga horária e semestre são obrigatórios.' });
   }
 
   try {
-    // Se um professorId foi informado, verifica se ele existe antes de salvar
     if (professorId) {
       const prof = await Professor.buscarPorId(professorId);
-      if (!prof) {
-        return res.status(404).json({ erro: 'Professor não encontrado.' });
-      }
+      if (!prof) return res.status(404).json({ erro: 'Professor não encontrado.' });
     }
 
-    const disciplina = await Disciplina.criar({ nomeDisciplina, cargaHoraria, professorId: professorId || null, curso, semestre });
+    if (cursoId) {
+      const curso = await Curso.buscarPorId(cursoId);
+      if (!curso) return res.status(404).json({ erro: 'Curso não encontrado.' });
+    }
+
+    const disciplina = await Disciplina.criar({
+      nomeDisciplina, cargaHoraria,
+      professorId: professorId || null,
+      cursoId: cursoId || null,
+      semestre,
+    });
     return res.status(201).json({ mensagem: 'Disciplina cadastrada com sucesso!', disciplina });
   } catch (err) {
     console.error('[disciplinas.cadastrar]', err.message);
@@ -33,8 +40,6 @@ async function cadastrar(req, res) {
 }
 
 // GET /api/disciplinas
-// Admin recebe todas as disciplinas
-// Professor recebe apenas as disciplinas onde é o professor_id (filtro via professorId do token)
 async function listar(req, res) {
   const { perfil, professorId } = req.usuario;
 
@@ -45,7 +50,6 @@ async function listar(req, res) {
     const resultado = await Disciplina.listar({
       pagina,
       limite,
-      // Se for professor, passa o id para filtrar; se for admin, passa null (sem filtro)
       professorId: perfil === 'professor' ? professorId : null,
     });
     return res.json(resultado);
@@ -55,29 +59,35 @@ async function listar(req, res) {
   }
 }
 
-// PUT /api/disciplinas/:id - somente admin
+// PUT /api/disciplinas/:id
 async function atualizar(req, res) {
   const { id } = req.params;
-  const { nomeDisciplina, cargaHoraria, professorId, curso, semestre } = req.body;
+  const { nomeDisciplina, cargaHoraria, professorId, cursoId, semestre } = req.body;
 
-  if (!nomeDisciplina || !cargaHoraria || !curso || !semestre) {
-    return res.status(400).json({ erro: 'Nome, carga horária, curso e semestre são obrigatórios.' });
+  if (!nomeDisciplina || !cargaHoraria || !semestre) {
+    return res.status(400).json({ erro: 'Nome, carga horária e semestre são obrigatórios.' });
   }
 
   try {
     const existente = await Disciplina.buscarPorId(id);
-    if (!existente) {
-      return res.status(404).json({ erro: 'Disciplina não encontrada.' });
-    }
+    if (!existente) return res.status(404).json({ erro: 'Disciplina não encontrada.' });
 
     if (professorId) {
       const prof = await Professor.buscarPorId(professorId);
-      if (!prof) {
-        return res.status(404).json({ erro: 'Professor não encontrado.' });
-      }
+      if (!prof) return res.status(404).json({ erro: 'Professor não encontrado.' });
     }
 
-    const disciplina = await Disciplina.atualizar(id, { nomeDisciplina, cargaHoraria, professorId: professorId || null, curso, semestre });
+    if (cursoId) {
+      const curso = await Curso.buscarPorId(cursoId);
+      if (!curso) return res.status(404).json({ erro: 'Curso não encontrado.' });
+    }
+
+    const disciplina = await Disciplina.atualizar(id, {
+      nomeDisciplina, cargaHoraria,
+      professorId: professorId || null,
+      cursoId: cursoId || null,
+      semestre,
+    });
     return res.json({ mensagem: 'Disciplina atualizada com sucesso!', disciplina });
   } catch (err) {
     console.error('[disciplinas.atualizar]', err.message);
@@ -85,15 +95,12 @@ async function atualizar(req, res) {
   }
 }
 
-// DELETE /api/disciplinas/:id - somente admin (soft delete)
+// DELETE /api/disciplinas/:id
 async function remover(req, res) {
   const { id } = req.params;
-
   try {
     const disciplina = await Disciplina.remover(id);
-    if (!disciplina) {
-      return res.status(404).json({ erro: 'Disciplina não encontrada.' });
-    }
+    if (!disciplina) return res.status(404).json({ erro: 'Disciplina não encontrada.' });
     return res.json({ mensagem: 'Disciplina removida com sucesso.', disciplina });
   } catch (err) {
     console.error('[disciplinas.remover]', err.message);

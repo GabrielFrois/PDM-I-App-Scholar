@@ -8,10 +8,10 @@ const pool   = require('../database/db');
 const Aluno  = require('../models/Aluno');
 
 async function cadastrar(req, res) {
-  const { nome, matricula, curso, email, telefone, cep, endereco, cidade, estado, senha } = req.body;
+  const { nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado, senha } = req.body;
 
-  if (!nome || !matricula || !curso || !email) {
-    return res.status(400).json({ erro: 'Nome, matrícula, curso e e-mail são obrigatórios.' });
+  if (!nome || !matricula || !email) {
+    return res.status(400).json({ erro: 'Nome, matrícula e e-mail são obrigatórios.' });
   }
 
   if (!senha || senha.trim().length < 6) {
@@ -22,7 +22,7 @@ async function cadastrar(req, res) {
   try {
     await client.query('BEGIN');
 
-    const aluno = await Aluno.criar({ nome, matricula, curso, email, telefone, cep, endereco, cidade, estado });
+    const aluno = await Aluno.criar({ nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado });
 
     const senhaHash = await bcrypt.hash(senha, 10);
     // ON CONFLICT DO NOTHING: se o e-mail já existe em `usuarios` (ex: re-cadastro),
@@ -88,13 +88,13 @@ async function atualizar(req, res) {
       return res.status(403).json({ erro: 'Você só pode editar o próprio cadastro.' });
     }
 
-    const { nome, matricula, curso, email, telefone, cep, endereco, cidade, estado } = req.body;
+    const { nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado } = req.body;
 
-    if (!nome || !matricula || !curso || !email) {
-      return res.status(400).json({ erro: 'Nome, matrícula, curso e e-mail são obrigatórios.' });
+    if (!nome || !matricula || !email) {
+      return res.status(400).json({ erro: 'Nome, matrícula e e-mail são obrigatórios.' });
     }
 
-    const aluno = await Aluno.atualizar(id, { nome, matricula, curso, email, telefone, cep, endereco, cidade, estado });
+    const aluno = await Aluno.atualizar(id, { nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado });
     return res.json({ mensagem: 'Dados atualizados com sucesso!', aluno });
   } catch (err) {
     if (err.code === '23505') {

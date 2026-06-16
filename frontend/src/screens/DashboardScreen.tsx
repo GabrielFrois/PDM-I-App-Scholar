@@ -42,6 +42,14 @@ const MENUS: Record<Perfil, ItemMenu[]> = {
       corDestaque: '#388E3C',
     },
     {
+      titulo:      'Cursos',
+      icone:       'school-outline',
+      rota:        'CadastroCurso',
+      descricao:   'Gerenciar cursos da instituição',
+      corFundo:    '#E6F9F4',
+      corDestaque: '#00796B',
+    },
+    {
       titulo:      'Disciplinas',
       icone:       'book-outline',
       rota:        'CadastroDisciplina',

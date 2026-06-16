@@ -14,6 +14,7 @@ import CadastroProfessorScreen  from '../screens/CadastroProfessorScreen';
 import DashboardScreen          from '../screens/DashboardScreen';
 import LancamentoNotasScreen    from '../screens/LancamentoNotasScreen';
 import LoginScreen              from '../screens/LoginScreen';
+import CadastroCursoScreen from '../screens/CadastroCursoScreen';
 
 export type RootStackParamList = {
   Login:              undefined;
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   CadastroDisciplina: undefined;
   Boletim:            undefined;
   LancamentoNotas:    undefined;
+  CadastroCurso: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -87,6 +89,11 @@ export default function AppNavigator() {
             name="LancamentoNotas"
             component={LancamentoNotasScreen}
             options={{ title: 'Lançamento de Notas' }}
+          />
+          <Stack.Screen
+            name="CadastroCurso"
+            component={CadastroCursoScreen}
+            options={{ title: 'Cadastro de Cursos' }}
           />
         </>
       )}

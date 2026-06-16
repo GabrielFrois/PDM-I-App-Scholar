@@ -4,55 +4,61 @@
 const pool = require('../database/db');
 
 const Aluno = {
-  // Insere um novo aluno e retorna os dados básicos do registro criado
-  async criar({ nome, matricula, curso, email, telefone, cep, endereco, cidade, estado }) {
+  // curso_id é a FK para a tabela cursos
+  async criar({ nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado }) {
     const result = await pool.query(
-      `INSERT INTO alunos (nome, matricula, curso, email, telefone, cep, endereco, cidade, estado)
+      `INSERT INTO alunos (nome, matricula, curso_id, email, telefone, cep, endereco, cidade, estado)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, nome, matricula, curso, email`,
-      [nome, matricula, curso, email, telefone, cep, endereco, cidade, estado]
+       RETURNING id, nome, matricula, curso_id, email`,
+      [nome, matricula, cursoId || null, email, telefone, cep, endereco, cidade, estado]
     );
     return result.rows[0];
   },
 
-  // Busca um aluno pelo e-mail; ignora registros com soft delete (deleted_at IS NULL)
   async buscarPorEmail(email) {
     const result = await pool.query(
-      `SELECT id, nome, matricula, curso, email, telefone, cep, endereco, cidade, estado
-         FROM alunos WHERE email = $1 AND deleted_at IS NULL`,
+      `SELECT a.id, a.nome, a.matricula, a.curso_id, c.nome AS curso,
+              a.email, a.telefone, a.cep, a.endereco, a.cidade, a.estado
+         FROM alunos a
+         LEFT JOIN cursos c ON c.id = a.curso_id AND c.deleted_at IS NULL
+        WHERE a.email = $1 AND a.deleted_at IS NULL`,
       [email]
     );
-    // ?? null: retorna null se não encontrar (em vez de undefined)
     return result.rows[0] ?? null;
   },
 
-  // Busca um aluno pelo id; ignora deletados
   async buscarPorId(id) {
     const result = await pool.query(
-      'SELECT * FROM alunos WHERE id = $1 AND deleted_at IS NULL',
+      `SELECT a.*, c.nome AS curso
+         FROM alunos a
+         LEFT JOIN cursos c ON c.id = a.curso_id AND c.deleted_at IS NULL
+        WHERE a.id = $1 AND a.deleted_at IS NULL`,
       [id]
     );
     return result.rows[0] ?? null;
   },
 
-  // Busca um aluno pela matrícula; usado no boletim
   async buscarPorMatricula(matricula) {
     const result = await pool.query(
-      'SELECT id, nome, matricula, curso FROM alunos WHERE matricula = $1 AND deleted_at IS NULL',
+      `SELECT a.id, a.nome, a.matricula, c.nome AS curso
+         FROM alunos a
+         LEFT JOIN cursos c ON c.id = a.curso_id AND c.deleted_at IS NULL
+        WHERE a.matricula = $1 AND a.deleted_at IS NULL`,
       [matricula]
     );
     return result.rows[0] ?? null;
   },
 
-  // Lista alunos ativos com paginação
-  // Promise.all executa as duas queries (dados + contagem total) em paralelo
   async listar({ pagina = 1, limite = 20 } = {}) {
     const offset = (pagina - 1) * limite;
     const [data, count] = await Promise.all([
       pool.query(
-        `SELECT id, nome, matricula, curso, email, cidade, estado
-           FROM alunos WHERE deleted_at IS NULL
-           ORDER BY nome LIMIT $1 OFFSET $2`,
+        `SELECT a.id, a.nome, a.matricula, a.curso_id, c.nome AS curso,
+                a.email, a.cidade, a.estado
+           FROM alunos a
+           LEFT JOIN cursos c ON c.id = a.curso_id AND c.deleted_at IS NULL
+          WHERE a.deleted_at IS NULL
+          ORDER BY a.nome LIMIT $1 OFFSET $2`,
         [limite, offset]
       ),
       pool.query('SELECT COUNT(*) FROM alunos WHERE deleted_at IS NULL'),
@@ -60,21 +66,18 @@ const Aluno = {
     return { dados: data.rows, total: parseInt(count.rows[0].count), pagina, limite };
   },
 
-  // Atualiza todos os campos de um aluno e retorna os dados atualizados
-  async atualizar(id, { nome, matricula, curso, email, telefone, cep, endereco, cidade, estado }) {
+  async atualizar(id, { nome, matricula, cursoId, email, telefone, cep, endereco, cidade, estado }) {
     const result = await pool.query(
       `UPDATE alunos
-          SET nome = $1, matricula = $2, curso = $3, email = $4,
+          SET nome = $1, matricula = $2, curso_id = $3, email = $4,
               telefone = $5, cep = $6, endereco = $7, cidade = $8, estado = $9
         WHERE id = $10
-       RETURNING id, nome, matricula, curso, email`,
-      [nome, matricula, curso, email, telefone, cep, endereco, cidade, estado, id]
+       RETURNING id, nome, matricula, curso_id, email`,
+      [nome, matricula, cursoId || null, email, telefone, cep, endereco, cidade, estado, id]
     );
     return result.rows[0];
   },
 
-  // Soft delete: não apaga o registro, apenas marca deleted_at com a data/hora atual
-  // Retorna null se o aluno não existir ou já estiver deletado
   async remover(id) {
     const result = await pool.query(
       `UPDATE alunos SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL

@@ -2,7 +2,7 @@ import type { AxiosError } from 'axios';
 import { api } from './api';
 
 export type DadosAluno = {
-  nome: string; matricula: string; curso: string; email: string;
+  nome: string; matricula: string; cursoId: string; email: string;
   telefone: string; cep: string; endereco: string; cidade: string; estado: string;
   senha?: string;
 };
@@ -12,14 +12,17 @@ export type DadosProfessor = {
   senha?: string;
 };
 
+// curso agora é cursoId (FK) em vez de texto livre
 export type DadosDisciplina = {
   nomeDisciplina: string; cargaHoraria: string;
   professorId: string;
-  curso: string; semestre: string;
+  cursoId: string;
+  semestre: string;
 };
 
 export type AlunoListagem = {
-  id: number; nome: string; matricula: string; curso: string;
+  id: number; nome: string; matricula: string;
+  curso_id: number | null; curso: string | null;
   email: string; cidade: string; estado: string;
   telefone?: string; cep?: string; endereco?: string;
 };
@@ -32,11 +35,35 @@ export type ProfessorListagem = {
 export type DisciplinaListagem = {
   id: number; nome: string; carga_horaria: number;
   professor_id: number | null; professor: string | null;
-  curso: string; semestre: string;
+  curso_id: number | null; curso: string | null;
+  semestre: string;
 };
 
 export type RespostaPaginada<T> = {
   dados: T[]; total: number; pagina: number; limite: number;
+};
+
+export type CursoListagem = {
+  id: number;
+  nome: string;
+  area: string;
+  duracao_sem: number;
+  coordenador_id: number | null;
+  coordenador: string | null;
+  descricao: string | null;
+};
+
+export type CursoSimples = {
+  id: number;
+  nome: string;
+};
+
+export type DadosCurso = {
+  nome: string;
+  area: string;
+  duracaoSem: string;
+  coordenadorId: string;
+  descricao: string;
 };
 
 function extrairMensagemErro(err: unknown): string {
@@ -124,5 +151,36 @@ export const cadastroService = {
       const { data } = await api.get<RespostaPaginada<DisciplinaListagem>>('/api/disciplinas', { params: { pagina, limite } });
       return data.dados;
     } catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  // Cursos
+
+  salvarCurso: async (dados: DadosCurso) => {
+    try { await api.post('/api/cursos', dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  atualizarCurso: async (id: number, dados: DadosCurso) => {
+    try { await api.put(`/api/cursos/${id}`, dados); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  removerCurso: async (id: number) => {
+    try { await api.delete(`/api/cursos/${id}`); }
+    catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  listarCursos: async (pagina = 1, limite = 200): Promise<CursoListagem[]> => {
+    try {
+      const { data } = await api.get<RespostaPaginada<CursoListagem>>('/api/cursos', { params: { pagina, limite } });
+      return data.dados;
+    } catch (err) { throw new Error(extrairMensagemErro(err)); }
+  },
+
+  listarCursosSimples: async (): Promise<CursoSimples[]> => {
+    try {
+      const { data } = await api.get<CursoSimples[]>('/api/cursos', { params: { simples: true } });
+      return data;
+    } catch { return []; }
   },
 };

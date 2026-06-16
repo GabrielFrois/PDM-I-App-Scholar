@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS notas        CASCADE;
 DROP TABLE IF EXISTS matriculas   CASCADE;
 DROP TABLE IF EXISTS disciplinas  CASCADE;
 DROP TABLE IF EXISTS alunos       CASCADE;
+DROP TABLE IF EXISTS cursos       CASCADE;
 DROP TABLE IF EXISTS professores  CASCADE;
 DROP TABLE IF EXISTS usuarios     CASCADE;
 
@@ -13,21 +14,6 @@ CREATE TABLE usuarios (
   senha_hash VARCHAR(255) NOT NULL,
   perfil     VARCHAR(20)  NOT NULL DEFAULT 'aluno'
                CHECK (perfil IN ('aluno', 'professor', 'admin')),
-  criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE alunos (
-  id         SERIAL       PRIMARY KEY,
-  nome       VARCHAR(150) NOT NULL,
-  matricula  VARCHAR(20)  NOT NULL UNIQUE,
-  curso      VARCHAR(100) NOT NULL,
-  email      VARCHAR(150) NOT NULL UNIQUE,
-  telefone   VARCHAR(20),
-  cep        VARCHAR(10),
-  endereco   VARCHAR(200),
-  cidade     VARCHAR(100),
-  estado     CHAR(2),
-  deleted_at TIMESTAMP    DEFAULT NULL,
   criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -42,12 +28,38 @@ CREATE TABLE professores (
   criado_em      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE cursos (
+  id              SERIAL        PRIMARY KEY,
+  nome            VARCHAR(150)  NOT NULL UNIQUE,
+  area            VARCHAR(100)  NOT NULL,
+  duracao_sem     INTEGER       NOT NULL DEFAULT 6,
+  coordenador_id  INTEGER       REFERENCES professores(id) ON DELETE SET NULL,
+  descricao       TEXT,
+  deleted_at      TIMESTAMP     DEFAULT NULL,
+  criado_em       TIMESTAMP     NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE alunos (
+  id         SERIAL       PRIMARY KEY,
+  nome       VARCHAR(150) NOT NULL,
+  matricula  VARCHAR(20)  NOT NULL UNIQUE,
+  curso_id   INTEGER      REFERENCES cursos(id) ON DELETE SET NULL,
+  email      VARCHAR(150) NOT NULL UNIQUE,
+  telefone   VARCHAR(20),
+  cep        VARCHAR(10),
+  endereco   VARCHAR(200),
+  cidade     VARCHAR(100),
+  estado     CHAR(2),
+  deleted_at TIMESTAMP    DEFAULT NULL,
+  criado_em  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE disciplinas (
   id            SERIAL       PRIMARY KEY,
   nome          VARCHAR(150) NOT NULL,
   carga_horaria INTEGER      NOT NULL,
   professor_id  INTEGER      REFERENCES professores(id) ON DELETE SET NULL,
-  curso         VARCHAR(100) NOT NULL,
+  curso_id      INTEGER      REFERENCES cursos(id) ON DELETE SET NULL,
   semestre      VARCHAR(20)  NOT NULL,
   deleted_at    TIMESTAMP    DEFAULT NULL,
   criado_em     TIMESTAMP    NOT NULL DEFAULT NOW()
@@ -85,15 +97,17 @@ CREATE TABLE notas (
   UNIQUE (aluno_id, disciplina_id)
 );
 
-CREATE INDEX idx_alunos_matricula       ON alunos(matricula);
-CREATE INDEX idx_alunos_email           ON alunos(email);
-CREATE INDEX idx_professores_email      ON professores(email);
-CREATE INDEX idx_notas_aluno            ON notas(aluno_id);
-CREATE INDEX idx_disciplinas_curso      ON disciplinas(curso);
-CREATE INDEX idx_disciplinas_prof       ON disciplinas(professor_id);
-CREATE INDEX idx_matriculas_aluno       ON matriculas(aluno_id);
-CREATE INDEX idx_matriculas_disciplina  ON matriculas(disciplina_id);
+CREATE INDEX idx_alunos_matricula      ON alunos(matricula);
+CREATE INDEX idx_alunos_email          ON alunos(email);
+CREATE INDEX idx_professores_email     ON professores(email);
+CREATE INDEX idx_notas_aluno           ON notas(aluno_id);
+CREATE INDEX idx_disciplinas_curso_id  ON disciplinas(curso_id);
+CREATE INDEX idx_disciplinas_prof      ON disciplinas(professor_id);
+CREATE INDEX idx_matriculas_aluno      ON matriculas(aluno_id);
+CREATE INDEX idx_matriculas_disciplina ON matriculas(disciplina_id);
 
-CREATE INDEX idx_alunos_deleted         ON alunos(deleted_at)       WHERE deleted_at IS NULL;
-CREATE INDEX idx_professores_deleted    ON professores(deleted_at)  WHERE deleted_at IS NULL;
-CREATE INDEX idx_disciplinas_deleted    ON disciplinas(deleted_at)  WHERE deleted_at IS NULL;
+CREATE INDEX idx_alunos_deleted        ON alunos(deleted_at)      WHERE deleted_at IS NULL;
+CREATE INDEX idx_professores_deleted   ON professores(deleted_at)  WHERE deleted_at IS NULL;
+CREATE INDEX idx_disciplinas_deleted   ON disciplinas(deleted_at)  WHERE deleted_at IS NULL;
+CREATE INDEX idx_cursos_deleted        ON cursos(deleted_at)       WHERE deleted_at IS NULL;
+CREATE INDEX idx_cursos_coord          ON cursos(coordenador_id);

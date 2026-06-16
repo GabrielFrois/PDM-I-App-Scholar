@@ -15,6 +15,7 @@ import { useIBGE } from '../hooks/useIBGE';
 import {
   cadastroService,
   type AlunoListagem,
+  type CursoSimples,
   type DadosAluno,
   type DisciplinaListagem,
 } from '../services/cadastroService';
@@ -24,11 +25,12 @@ import { theme } from '../styles/theme';
 type Aba = 'lista' | 'dados' | 'matricula';
 
 const VAZIO: DadosAluno = {
-  nome: '', matricula: '', curso: '', email: '',
+  nome: '', matricula: '', cursoId: '', email: '',
   telefone: '', cep: '', endereco: '', cidade: '', estado: '', senha: '',
 };
 
-const BLOQUEADOS_ALUNO = ['nome', 'matricula', 'curso', 'email'];
+// Aluno só pode editar telefone, CEP e endereço, os demais campos são bloqueados
+const BLOQUEADOS_ALUNO = ['nome', 'matricula', 'cursoId', 'email'];
 
 function agruparPorSemestre(disciplinas: DisciplinaListagem[]): Record<string, DisciplinaListagem[]> {
   return disciplinas.reduce<Record<string, DisciplinaListagem[]>>((acc, d) => {
@@ -61,11 +63,15 @@ export default function CadastroAlunoScreen() {
   const [salvandoMat,    setSalvandoMat]    = useState(false);
   const [feedbackMat,    setFeedbackMat]    = useState<{ texto: string; erro: boolean } | null>(null);
 
+  // Lista de cursos para o SelectField - payload mínimo { id, nome }
+  const [cursos, setCursos] = useState<CursoSimples[]>([]);
+  const opcoesCursos: OpcaoSelect[] = cursos.map((c) => ({ label: c.nome, value: String(c.id) }));
+
   const { formulario, erros, atualizarCampo, validar, resetar, preencherFormulario } =
     useFormulario(VAZIO, {
       nome:      (v) => !v.trim() ? 'Nome é obrigatório.' : '',
       matricula: (v) => !v.trim() ? 'Matrícula é obrigatória.' : '',
-      curso:     (v) => !v.trim() ? 'Curso é obrigatório.' : '',
+      cursoId:   (v) => !v.trim() ? 'Curso é obrigatório.' : '',
       email: (v) => {
         if (!v.trim()) return 'E-mail é obrigatório.';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'E-mail inválido.';
@@ -111,6 +117,7 @@ export default function CadastroAlunoScreen() {
     });
   }, [aba, navegacao, voltarParaLista, ehAluno]);
 
+  // Carrega dados do aluno logado para auto-preencher o formulário
   useEffect(() => {
     if (!ehAluno || !user?.email) return;
     (async () => {
@@ -121,7 +128,8 @@ export default function CadastroAlunoScreen() {
           preencherFormulario({
             nome:      aluno.nome      ?? '',
             matricula: aluno.matricula ?? '',
-            curso:     aluno.curso     ?? '',
+            // curso_id vem como number do backend; SelectField precisa de string
+            cursoId:   aluno.curso_id != null ? String(aluno.curso_id) : '',
             email:     aluno.email     ?? '',
             telefone:  aluno.telefone  ?? '',
             cep:       aluno.cep       ?? '',
@@ -144,13 +152,18 @@ export default function CadastroAlunoScreen() {
     finally { setCarregandoLista(false); }
   }, []);
 
+  // Carrega cursos para todos os perfis (aluno precisa para exibir o SelectField)
+  useEffect(() => {
+    cadastroService.listarCursosSimples().then(setCursos).catch(() => {});
+  }, []);
+
+  // Para admin/professor: carrega também lista de alunos e disciplinas
   useEffect(() => {
     if (!ehAluno) {
       carregarLista();
       cadastroService.listarDisciplinas().then(setDisciplinas).catch(() => {});
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ehAluno]);
+  }, [ehAluno, carregarLista]);
 
   const abrirMatricula = async (aluno: AlunoListagem) => {
     setAlunoSelecionado(aluno);
@@ -173,7 +186,8 @@ export default function CadastroAlunoScreen() {
     preencherFormulario({
       nome:      aluno.nome      ?? '',
       matricula: aluno.matricula ?? '',
-      curso:     aluno.curso     ?? '',
+      // curso_id do registro -> string para o SelectField
+      cursoId:   aluno.curso_id != null ? String(aluno.curso_id) : '',
       email:     aluno.email     ?? '',
       telefone:  aluno.telefone  ?? '',
       cep:       aluno.cep       ?? '',
@@ -258,7 +272,7 @@ export default function CadastroAlunoScreen() {
     }
   };
 
-  // ── Spinner enquanto aluno carrega seus dados
+  // Spinner enquanto aluno carrega seus dados
   if (carregando) {
     return (
       <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
@@ -270,7 +284,7 @@ export default function CadastroAlunoScreen() {
     );
   }
 
-  // ── ABA LISTA
+  // Aba Lista
   if (aba === 'lista') {
     const alunosFiltrados = alunos.filter(a => {
       const t = filtro.trim().toLowerCase();
@@ -313,7 +327,9 @@ export default function CadastroAlunoScreen() {
                   <View style={estilos.cardInfo}>
                     <Text style={estilos.cardNome} numberOfLines={1}>{aluno.nome}</Text>
                     <Text style={estilos.cardSub}>Mat. {aluno.matricula}</Text>
-                    <Text style={estilos.cardSub} numberOfLines={1}>{aluno.curso}</Text>
+                    <Text style={estilos.cardSub} numberOfLines={1}>
+                      {aluno.curso ?? 'Sem curso vinculado'}
+                    </Text>
                     <Text style={estilos.cardSub}>{aluno.cidade} — {aluno.estado}</Text>
                   </View>
                   <View style={estilos.cardAcoes}>
@@ -336,7 +352,7 @@ export default function CadastroAlunoScreen() {
     );
   }
 
-  // ── ABA MATRÍCULA
+  // Aba Matrícula
   if (aba === 'matricula' && alunoSelecionado) {
     const grupos = agruparPorSemestre(disciplinas);
     const semestresOrdenados = Object.keys(grupos).sort();
@@ -409,7 +425,7 @@ export default function CadastroAlunoScreen() {
     );
   }
 
-  // ── ABA DADOS (formulário)
+  // Aba Dados (formulário de cadastro / edição)
   return (
     <SafeAreaView style={estilos.safeArea} edges={['bottom']}>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.conteudo}
@@ -432,9 +448,15 @@ export default function CadastroAlunoScreen() {
           value={formulario.matricula} onChangeText={(v) => atualizarCampo('matricula', v)}
           keyboardType="numeric" error={erros.matricula} editable={!bloqueado('matricula')} />
 
-        <InputField label="Curso *" placeholder="Ex: Desenvolvimento de Software"
-          value={formulario.curso} onChangeText={(v) => atualizarCampo('curso', v)}
-          error={erros.curso} editable={!bloqueado('curso')} />
+        <SelectField
+          label="Curso *"
+          placeholder="Selecione o curso"
+          opcoes={opcoesCursos}
+          valor={formulario.cursoId}
+          onChange={(v) => atualizarCampo('cursoId', v)}
+          disabled={bloqueado('cursoId')}
+          error={erros.cursoId}
+        />
 
         <InputField label="E-mail *" placeholder="aluno@fatec.sp.gov.br"
           value={formulario.email} onChangeText={(v) => atualizarCampo('email', v)}
